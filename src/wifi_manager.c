@@ -48,7 +48,6 @@ Contains the freeRTOS task and all necessary support
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
-#include "bootloader_random.h"
 #include "mdns.h"
 #include "lwip/api.h"
 #include "lwip/err.h"
@@ -69,6 +68,15 @@ Contains the freeRTOS task and all necessary support
 /** How many milliseconds after wifi startup before attempting to connect
  * to hardcoded access point. */
 #define HARDCODED_CONNECT_DELAY		29000
+
+#ifdef CONFIG_USE_RANDOM_AP_PASSWORD
+#include "bootloader_random.h"
+/** Allowed characters in random AP password.
+ * Not using 0, 1, i, o, l as these are confusing. */
+static const char wifi_manager_ap_chars[] = "abcdefghjkmnpqrstuvwxyz23456789";
+/** Random password for AP. */
+static char wifi_manager_ap_password[AP_PASSWORD_LENGTH + 1];
+#endif // CONFIG_USE_RANDOM_AP_PASSWORD
 
 /* objects used to manipulate the main queue of events */
 QueueHandle_t wifi_manager_queue;
@@ -108,14 +116,6 @@ static TaskHandle_t task_wifi_manager = NULL;
 static esp_netif_t *esp_netif_sta = NULL;
 
 /* @brief netif object for the ACCESS POINT */
-
-#ifdef CONFIG_USE_RANDOM_AP_PASSWORD
-/** Allowed characters in random AP password.
- * Not using 0, 1, i, o, l as these are confusing. */
-static const char wifi_manager_ap_chars[] = "abcdefghjkmnpqrstuvwxyz23456789";
-/** Random password for AP. */
-static char wifi_manager_ap_password[AP_PASSWORD_LENGTH + 1];
-#endif // CONFIG_USE_RANDOM_AP_PASSWORD
 static esp_netif_t *esp_netif_ap = NULL;
 
 /** When was the last check for connecting to the hardcoded access point. */
@@ -235,7 +235,6 @@ void wifi_manager_disconnect_async()
 	wifi_manager_send_message(WM_ORDER_DISCONNECT_STA, NULL);
 }
 
-
 #ifdef CONFIG_USE_RANDOM_AP_PASSWORD
 
 /* must not be called after wifi is initialized */
@@ -319,6 +318,7 @@ void wifi_manager_start()
 	}
 	strcpy((char *)wifi_settings.ap_pwd, wifi_manager_ap_password);
 #endif // CONFIG_USE_RANDOM_AP_PASSWORD
+
 	ESP_LOGI(TAG, "AP password: %s", wifi_settings.ap_pwd);
 
 	/* memory allocation */
