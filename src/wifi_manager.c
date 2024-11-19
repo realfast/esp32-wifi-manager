@@ -139,15 +139,15 @@ static char connect_request_password[MAX_PASSWORD_SIZE + 1];
 /**
  * The actual WiFi settings in use
  */
-struct wifi_settings_t wifi_settings = {
-	.ap_ssid = DEFAULT_AP_SSID,
-	.ap_pwd = DEFAULT_AP_PASSWORD,
-	.ap_channel = DEFAULT_AP_CHANNEL,
-	.ap_ssid_hidden = DEFAULT_AP_SSID_HIDDEN,
-	.ap_bandwidth = DEFAULT_AP_BANDWIDTH,
-	.sta_only = DEFAULT_STA_ONLY,
-	.sta_power_save = DEFAULT_STA_POWER_SAVE,
-	.sta_static_ip = 0,
+wifi_settings_t wifi_settings = {
+		.ap_ssid = DEFAULT_AP_SSID,
+		.ap_pwd = DEFAULT_AP_PASSWORD,
+		.ap_channel = DEFAULT_AP_CHANNEL,
+		.ap_ssid_hidden = DEFAULT_AP_SSID_HIDDEN,
+		.ap_bandwidth = DEFAULT_AP_BANDWIDTH,
+		.sta_only = DEFAULT_STA_ONLY,
+		.sta_power_save = DEFAULT_STA_POWER_SAVE,
+		.sta_static_ip = 0,
 };
 
 const char wifi_manager_nvs_namespace[] = "espwifimgr";
