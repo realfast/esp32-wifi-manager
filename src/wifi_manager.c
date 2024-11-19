@@ -357,8 +357,10 @@ void wifi_manager_start()
 
 	/* create timer for to keep track of retries */
 	wifi_manager_retry_timer = xTimerCreate(NULL, pdMS_TO_TICKS(WIFI_MANAGER_RETRY_TIMER), pdFALSE, (void *)0, wifi_manager_timer_retry_cb);
+#if WIFI_MANAGER_SHUTDOWN_AP_TIMER > 0
 	/* create timer for to keep track of AP shutdown */
 	wifi_manager_shutdown_ap_timer = xTimerCreate(NULL, pdMS_TO_TICKS(WIFI_MANAGER_SHUTDOWN_AP_TIMER), pdFALSE, (void *)0, wifi_manager_timer_shutdown_ap_cb);
+#endif /* WIFI_MANAGER_SHUTDOWN_AP_TIMER>0 */
 	/* create timer for retrying the start of a scan */
 	wifi_manager_scan_retry_timer = xTimerCreate(NULL, pdMS_TO_TICKS(WIFI_MANAGER_SCAN_RETRY), pdFALSE, (void *)0, wifi_manager_timer_scan_retry_cb);
 
@@ -1596,8 +1598,12 @@ void wifi_manager(void *pvParameters)
 				wifi_manager_safe_update_sta_ip_string((uint32_t)0);
 
 				/* if there was a timer on to stop the AP, well now it's time to cancel that since connection was lost! */
-				if(xTimerIsTimerActive(wifi_manager_shutdown_ap_timer) == pdTRUE ){
-					xTimerStop( wifi_manager_shutdown_ap_timer, (TickType_t)0 );
+				if (wifi_manager_shutdown_ap_timer != NULL)
+				{
+					if (xTimerIsTimerActive(wifi_manager_shutdown_ap_timer) == pdTRUE)
+					{
+						xTimerStop(wifi_manager_shutdown_ap_timer, (TickType_t)0);
+					}
 				}
 
 				uxBits = xEventGroupGetBits(wifi_manager_event_group);
@@ -1788,7 +1794,7 @@ void wifi_manager(void *pvParameters)
 				 * We check first that it's actually running because in case of a boot and restore connection
 				 * the AP is not even started to begin with.
 				 */
-#if WIFI_MANAGER_SHUTDOWN_AP_TIMER >= 0
+#if WIFI_MANAGER_SHUTDOWN_AP_TIMER > 0
 				if (uxBits & WIFI_MANAGER_AP_STARTED_BIT)
 				{
 					/* bring down DNS hijack */
