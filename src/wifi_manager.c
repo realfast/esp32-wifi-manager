@@ -448,6 +448,7 @@ bool wifi_manager_saved_wifi_scan(wifi_ap_record_t *ap)
 	return exists;
 }
 
+//TODO!! Look into this and see if it makes sense to rewrite to cleanup
 esp_err_t wifi_manager_save_sta_config()
 {
 	esp_err_t esp_err;
@@ -576,28 +577,36 @@ bool wifi_manager_wifi_sta_config_exists()
 {
 	nvs_handle handle;
 	size_t sz;
-	bool exists;
+	wifi_config_t wifi_config;
+	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
 
-	if(nvs_sync_lock( portMAX_DELAY )){
-		if(nvs_open(wifi_manager_nvs_namespace, NVS_READONLY, &handle) == ESP_OK){
-			if((nvs_get_blob(handle, "ssid", NULL, &sz) == ESP_OK)
-				&& (nvs_get_blob(handle, "password", NULL, &sz) == ESP_OK)){
-				exists = true;
-			}
-			else{
-				exists = false;
+	if (nvs_sync_lock(portMAX_DELAY))
+	{
+		if (nvs_open(wifi_manager_nvs_namespace, NVS_READONLY, &handle) == ESP_OK)
+		{
+			if ((nvs_get_blob(handle, "saved_networks", NULL, &sz) == ESP_OK) && (sz > 0))
+			{
+
+				if (nvs_get_blob(handle, "saved_networks", saved_networks, &sz) == ESP_OK)
+				{
+					for (int i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+					{
+						memcpy(&wifi_config.sta.ssid, &saved_networks[i].ssid, sizeof(wifi_config.sta.ssid));
+						memcpy(&wifi_config.sta.password, &saved_networks[i].password, sizeof(wifi_config.sta.password));
+						if (wifi_config.sta.ssid[0] != 0)
+						{
+							nvs_close(handle);
+							nvs_sync_unlock();
+							return true;
+						}
+					}
+				}
 			}
 			nvs_close(handle);
 		}
-		else{
-			exists = false;
-		}
 		nvs_sync_unlock();
 	}
-	else{
-		exists = false;
-	}
-	return exists;
+	return false;
 }
 
 bool wifi_manager_fetch_wifi_sta_config(){
