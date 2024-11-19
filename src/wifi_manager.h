@@ -34,7 +34,7 @@ Contains the freeRTOS task and all necessary support
 
 #include <stdbool.h>
 #include "esp_wifi.h"
-
+#include "esp_mac.h"
 
 #ifdef __cplusplus
 extern "C" {

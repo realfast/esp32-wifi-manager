@@ -150,9 +150,6 @@ struct wifi_settings_t wifi_settings = {
 	.sta_static_ip = 0,
 };
 
-/** Whether MAC has already been appended to the AP SSID. */
-static bool mac_appended_to_ssid;
-
 const char wifi_manager_nvs_namespace[] = "espwifimgr";
 
 static EventGroupHandle_t wifi_manager_event_group;
@@ -192,6 +189,16 @@ const int WIFI_MANAGER_REQUEST_DEFERRED_CONNECT = BIT10;
 /* Prototypes */
 static void wifi_manager_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 
+void append_mac_address(void)
+{
+	uint8_t mac_address[6];
+	if ((strlen((char *)wifi_settings.ap_ssid) + 6 < sizeof(wifi_settings.ap_ssid)) && (esp_read_mac(mac_address, ESP_MAC_WIFI_STA) == ESP_OK))
+	{
+		char buf[6];
+		sprintf(buf, "_%02X%02X", (unsigned int)mac_address[4], (unsigned int)mac_address[5]);
+		strcat((char *)wifi_settings.ap_ssid, buf);
+	}
+}
 
 void wifi_manager_timer_retry_cb(TimerHandle_t xTimer)
 {
@@ -1279,17 +1286,9 @@ void wifi_manager(void *pvParameters)
 					.beacon_interval = DEFAULT_AP_BEACON_INTERVAL,
 			},
 	};
+
 #ifdef CONFIG_WIFI_MANAGER_APPEND_MAC
-	/* Augment AP SSID with last bit of MAC address to make it more unique */
-	uint8_t mac_address[6];
-	if(!mac_appended_to_ssid
-		&& ((strlen((char *)wifi_settings.ap_ssid) + 6) < sizeof(wifi_settings.ap_ssid))
-		&& (esp_read_mac(mac_address, ESP_MAC_WIFI_STA) == ESP_OK)){
-		char buf[6];
-		sprintf(buf, " %02x%02x", (unsigned int)mac_address[4], (unsigned int)mac_address[5]);
-		strcat((char *)wifi_settings.ap_ssid, buf);
-		mac_appended_to_ssid = true;
-	}
+	append_mac_address();
 #endif // CONFIG_WIFI_MANAGER_APPEND_MAC
 	memcpy(ap_config.ap.ssid, wifi_settings.ap_ssid, sizeof(wifi_settings.ap_ssid));
 
