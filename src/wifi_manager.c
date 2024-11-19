@@ -64,10 +64,10 @@ Contains the freeRTOS task and all necessary support
 #define AP_PASSWORD_LENGTH 8
 /** How many milliseconds to wait before doing checks for connecting to the
  * hardcoded access point. */
-#define HARDCODED_CHECK_INTERVAL	30000
+#define HARDCODED_CHECK_INTERVAL 30000
 /** How many milliseconds after wifi startup before attempting to connect
  * to hardcoded access point. */
-#define HARDCODED_CONNECT_DELAY		29000
+#define HARDCODED_CONNECT_DELAY 29000
 
 #ifdef CONFIG_USE_RANDOM_AP_PASSWORD
 #include "bootloader_random.h"
@@ -848,14 +848,17 @@ static void wifi_manager_event_handler(void *arg, esp_event_base_t event_base, i
 			xEventGroupClearBits(wifi_manager_event_group, WIFI_MANAGER_CONNECT_IN_PROGRESS);
 			/* Check whether this is the hardcoded AP. */
 			wifi_config_t *config = wifi_manager_get_wifi_sta_config();
+
+#ifdef CONFIG_HARDCODED_SSID_ENABLE
 			if ((strcmp((char *)config->sta.ssid, HARDCODED_SSID) == 0) && (strcmp((char *)config->sta.password, HARDCODED_PASSWORD) == 0))
 			{
 				sta_connected_to_hardcoded = true;
+				break;
 			}
-			else
-			{
-				sta_connected_to_hardcoded = false;
-			}
+#endif
+
+			sta_connected_to_hardcoded = false;
+
 			break;
 
 		/* This event can be generated in the following scenarios:
@@ -1242,7 +1245,8 @@ void possibly_do_hardcoded_connect()
 	// ...or if any saved AP configuration exists in NV storage. Even if we
 	// aren't connected to it. We only want to connect to the hardcoded AP
 	// if the device is factory fresh.
-	if(wifi_manager_wifi_sta_config_exists()){
+	if (wifi_manager_wifi_sta_config_exists())
+	{
 		return;
 	}
 
@@ -1352,7 +1356,9 @@ void wifi_manager(void *pvParameters)
 	xSemaphoreTake(wifi_manager_event_loop_mutex, 0);
 	while (!finished)
 	{
+#ifdef CONFIG_HARDCODED_SSID_ENABLE
 		possibly_do_hardcoded_connect();
+#endif // HARDCODED_SSID
 
 		/* the xTicksToWait argument mustn't be infinite, otherwise the checks for
 		 * the hardcoded AP may never happen */

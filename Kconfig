@@ -92,11 +92,17 @@ config DEFAULT_AP_BEACON_INTERVAL
     help
 	100ms is the recommended default.
 
-config HARDCODED_SSID
-  	string "Hardcoded SSID"
-  	default "HardcodedSSID"
+config HARDCODED_SSID_ENABLE
+  	bool "Enable hardcoded SSID"
+  	default n
   	help
   	For factory configuration, the device will attempt to connect an an AP with this SSID if there are no user configured APs.
+
+config HARDCODED_SSID
+    string "Hardcoded SSID"
+    default "HardcodedSSID"
+    help
+    For factory configuration, the device will attempt to connect an an AP with this SSID if there are no user configured APs.
 
 config HARDCODED_PASSWORD
   	string "Hardcoded password"
