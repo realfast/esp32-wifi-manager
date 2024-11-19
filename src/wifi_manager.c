@@ -402,103 +402,174 @@ esp_err_t wifi_manager_erase_sta_config()
 	return esp_err;
 }
 
-esp_err_t wifi_manager_save_sta_config(){
-
+bool wifi_manager_saved_wifi_scan(wifi_ap_record_t *ap)
+{
 	nvs_handle handle;
 	esp_err_t esp_err;
+	bool exists = false;
+	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
 	size_t sz;
 
-	/* variables used to check if write is really needed */
-	wifi_config_t tmp_conf;
-	struct wifi_settings_t tmp_settings;
-	memset(&tmp_conf, 0x00, sizeof(tmp_conf));
-	memset(&tmp_settings, 0x00, sizeof(tmp_settings));
-	bool change = false;
+	if (nvs_sync_lock(portMAX_DELAY))
+	{
+		esp_err = nvs_open(wifi_manager_nvs_namespace, NVS_READONLY, &handle);
 
-	ESP_LOGI(TAG, "About to save config to flash!!");
+		if (esp_err == ESP_OK)
+		{
+			sz = sizeof(saved_networks);
+			esp_err = nvs_get_blob(handle, "saved_networks", saved_networks, &sz);
 
-	if(wifi_manager_config_sta && nvs_sync_lock( portMAX_DELAY )){
-
-		esp_err = nvs_open(wifi_manager_nvs_namespace, NVS_READWRITE, &handle);
-		if (esp_err != ESP_OK){
-			nvs_sync_unlock();
-			return esp_err;
-		}
-
-		sz = sizeof(tmp_conf.sta.ssid);
-		esp_err = nvs_get_blob(handle, "ssid", tmp_conf.sta.ssid, &sz);
-		if( (esp_err == ESP_OK  || esp_err == ESP_ERR_NVS_NOT_FOUND) && strcmp( (char*)tmp_conf.sta.ssid, (char*)wifi_manager_config_sta->sta.ssid) != 0){
-			/* different ssid or ssid does not exist in flash: save new ssid */
-			esp_err = nvs_set_blob(handle, "ssid", wifi_manager_config_sta->sta.ssid, 32);
-			if (esp_err != ESP_OK){
-				nvs_sync_unlock();
-				return esp_err;
+			if (esp_err != ESP_OK)
+			{
+				ESP_LOGE(TAG, "Error reading saved networks from NVS: %s", esp_err_to_name(esp_err));
+				return false;
 			}
-			change = true;
-			ESP_LOGI(TAG, "wifi_manager_wrote wifi_sta_config: ssid:%s",wifi_manager_config_sta->sta.ssid);
 
-		}
-
-		sz = sizeof(tmp_conf.sta.password);
-		esp_err = nvs_get_blob(handle, "password", tmp_conf.sta.password, &sz);
-		if( (esp_err == ESP_OK  || esp_err == ESP_ERR_NVS_NOT_FOUND) && strcmp( (char*)tmp_conf.sta.password, (char*)wifi_manager_config_sta->sta.password) != 0){
-			/* different password or password does not exist in flash: save new password */
-			esp_err = nvs_set_blob(handle, "password", wifi_manager_config_sta->sta.password, 64);
-			if (esp_err != ESP_OK){
-				nvs_sync_unlock();
-				return esp_err;
+			for (int i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+			{
+				if (saved_networks[i].ssid[0] != 0)
+				{
+					if (strncmp((char *)ap->ssid, (char *)saved_networks[i].ssid, MAX_SSID_SIZE) == 0)
+					{
+						exists = true;
+						memcpy(&wifi_manager_config_sta->sta.ssid, saved_networks[i].ssid, MAX_SSID_SIZE);
+						memcpy(&wifi_manager_config_sta->sta.password, saved_networks[i].password, MAX_PASSWORD_SIZE);
+						break;
+					}
+				}
 			}
-			change = true;
-			ESP_LOGI(TAG, "wifi_manager_wrote wifi_sta_config: password:%s",wifi_manager_config_sta->sta.password);
+
+			nvs_close(handle);
 		}
 
-		sz = sizeof(tmp_settings);
-		esp_err = nvs_get_blob(handle, "settings", &tmp_settings, &sz);
-		if( (esp_err == ESP_OK  || esp_err == ESP_ERR_NVS_NOT_FOUND) &&
-				(
-				strcmp( (char*)tmp_settings.ap_ssid, (char*)wifi_settings.ap_ssid) != 0 ||
-				strcmp( (char*)tmp_settings.ap_pwd, (char*)wifi_settings.ap_pwd) != 0 ||
-				tmp_settings.ap_ssid_hidden != wifi_settings.ap_ssid_hidden ||
-				tmp_settings.ap_bandwidth != wifi_settings.ap_bandwidth ||
-				tmp_settings.sta_only != wifi_settings.sta_only ||
-				tmp_settings.sta_power_save != wifi_settings.sta_power_save ||
-				tmp_settings.ap_channel != wifi_settings.ap_channel
-				)
-		){
-			esp_err = nvs_set_blob(handle, "settings", &wifi_settings, sizeof(wifi_settings));
-			if (esp_err != ESP_OK){
-				nvs_sync_unlock();
-				return esp_err;
-			}
-			change = true;
-
-			ESP_LOGD(TAG, "wifi_manager_wrote wifi_settings: SoftAP_ssid: %s",wifi_settings.ap_ssid);
-			ESP_LOGD(TAG, "wifi_manager_wrote wifi_settings: SoftAP_pwd: %s",wifi_settings.ap_pwd);
-			ESP_LOGD(TAG, "wifi_manager_wrote wifi_settings: SoftAP_channel: %i",wifi_settings.ap_channel);
-			ESP_LOGD(TAG, "wifi_manager_wrote wifi_settings: SoftAP_hidden (1 = yes): %i",wifi_settings.ap_ssid_hidden);
-			ESP_LOGD(TAG, "wifi_manager_wrote wifi_settings: SoftAP_bandwidth (1 = 20MHz, 2 = 40MHz): %i",wifi_settings.ap_bandwidth);
-			ESP_LOGD(TAG, "wifi_manager_wrote wifi_settings: sta_only (0 = APSTA, 1 = STA when connected): %i",wifi_settings.sta_only);
-			ESP_LOGD(TAG, "wifi_manager_wrote wifi_settings: sta_power_save (1 = yes): %i",wifi_settings.sta_power_save);
-		}
-
-		if(change){
-			esp_err = nvs_commit(handle);
-		}
-		else{
-			ESP_LOGI(TAG, "Wifi config was not saved to flash because no change has been detected.");
-		}
-
-		if (esp_err != ESP_OK) return esp_err;
-
-		nvs_close(handle);
 		nvs_sync_unlock();
-
-	}
-	else{
-		ESP_LOGE(TAG, "wifi_manager_save_sta_config failed to acquire nvs_sync mutex");
 	}
 
-	return ESP_OK;
+	return exists;
+}
+
+esp_err_t wifi_manager_save_sta_config()
+{
+	esp_err_t esp_err;
+	nvs_handle handle;
+	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
+	size_t required_size = 0;
+	int i;
+
+	// Lock mutex
+	xSemaphoreTake(wifi_manager_json_mutex, portMAX_DELAY);
+
+	// Open NVS
+	esp_err = nvs_open(wifi_manager_nvs_namespace, NVS_READWRITE, &handle);
+	if (esp_err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "NVS open failed (%d)", esp_err);
+		goto exit;
+	}
+
+	// Read saved networks from NVS
+	esp_err = nvs_get_blob(handle, "saved_networks", NULL, &required_size);
+	if (esp_err == ESP_OK)
+	{
+		if (required_size > 0)
+		{
+			if (required_size > sizeof(saved_networks))
+			{
+				ESP_LOGE(TAG, "Saved networks blob too large (%d)", required_size);
+				goto exit;
+			}
+			esp_err = nvs_get_blob(handle, "saved_networks", saved_networks, &required_size);
+			if (esp_err != ESP_OK)
+			{
+				ESP_LOGE(TAG, "Failed to read saved networks from NVS (%d)", esp_err);
+				goto exit;
+			}
+		}
+	}
+	else if (esp_err == ESP_ERR_NVS_NOT_FOUND)
+	{
+		// No saved networks in NVS
+		required_size = 0;
+	}
+	else
+	{
+		ESP_LOGE(TAG, "Failed to get saved networks blob size from NVS (%d)", esp_err);
+		goto exit;
+	}
+
+	// Add current network to saved networks
+	for (i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+	{
+		if (strcmp((char *)wifi_manager_config_sta->sta.ssid, (char *)saved_networks[i].ssid) == 0)
+		{
+			// Network already saved, update password
+			if (strcmp((char *)wifi_manager_config_sta->sta.password, (char *)saved_networks[i].password) == 0)
+			{
+				// Password unchanged, nothing to do
+				ESP_LOGI(TAG, "Network %s already saved", wifi_manager_config_sta->sta.ssid);
+				goto exit;
+			}
+			ESP_LOGI(TAG, "Updating password for network %s", wifi_manager_config_sta->sta.ssid);
+			memcpy(&saved_networks[i].ssid, &wifi_manager_config_sta->sta.ssid, sizeof(wifi_manager_config_sta->sta.ssid));
+			memcpy(&saved_networks[i].password, &wifi_manager_config_sta->sta.password, sizeof(wifi_manager_config_sta->sta.password));
+			break;
+		}
+		else if (saved_networks[i].ssid[0] == 0)
+		{
+			// Found empty slot, add network
+			ESP_LOGI(TAG, "Adding network %s to saved networks", wifi_manager_config_sta->sta.ssid);
+			memcpy(&saved_networks[i].ssid, &wifi_manager_config_sta->sta.ssid, sizeof(wifi_manager_config_sta->sta.ssid));
+			memcpy(&saved_networks[i].password, &wifi_manager_config_sta->sta.password, sizeof(wifi_manager_config_sta->sta.password));
+			break;
+		}
+	}
+	if (i == WIFI_MAX_AP_CONFIGS)
+	{
+		// No empty slot found, overwrite first saved network delete the oldest network and shift the rest down one
+		ESP_LOGI(TAG, "No empty slot found, overwriting first saved network");
+		for (int i = 0; i < WIFI_MAX_AP_CONFIGS - 2; i++)
+		{
+			memcpy(&saved_networks[i], &saved_networks[i + 1], sizeof(saved_networks[i + 1]));
+		}
+		memcpy(&saved_networks[WIFI_MAX_AP_CONFIGS - 1].ssid, &wifi_manager_config_sta->sta.ssid, sizeof(wifi_manager_config_sta->sta.ssid));
+		memcpy(&saved_networks[WIFI_MAX_AP_CONFIGS - 1].password, &wifi_manager_config_sta->sta.password, sizeof(wifi_manager_config_sta->sta.password));
+	}
+
+	// Save saved networks to NVS
+	esp_err = nvs_set_blob(handle, "saved_networks", saved_networks, sizeof(saved_networks));
+	if (esp_err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to save saved networks to NVS (%d)", esp_err);
+		goto exit;
+	}
+	else if (esp_err == ESP_OK)
+	{
+		ESP_LOGI(TAG, "Saved networks to NVS");
+	}
+
+	// Commit NVS
+	esp_err = nvs_commit(handle);
+	if (esp_err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "NVS commit failed (%d)", esp_err);
+		goto exit;
+	}
+	else if (esp_err == ESP_OK)
+	{
+		ESP_LOGI(TAG, "Commited NVS");
+	}
+
+	// Success
+	esp_err = ESP_OK;
+
+exit:
+	// Close NVS
+	nvs_close(handle);
+
+	// Unlock mutex
+	xSemaphoreGive(wifi_manager_json_mutex);
+
+	return esp_err;
 }
 
 bool wifi_manager_wifi_sta_config_exists()
