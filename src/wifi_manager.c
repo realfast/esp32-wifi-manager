@@ -1336,7 +1336,11 @@ void wifi_manager(void *pvParameters)
 	ESP_ERROR_CHECK(esp_wifi_set_ps(wifi_settings.sta_power_save));
 
 	/* by default the mode is STA because wifi_manager will not start the access point unless it has to! */
-	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+	if (wifi_settings.sta_only)
+	{
+		ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+	}
+
 	ESP_ERROR_CHECK(esp_wifi_start());
 
 	/* start http server */
