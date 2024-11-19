@@ -189,6 +189,11 @@ const int WIFI_MANAGER_REQUEST_DEFERRED_CONNECT = BIT10;
 /* Prototypes */
 static void wifi_manager_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 
+bool wifi_manager_is_sta_connected(void)
+{
+	return (wifi_manager_event_group != NULL) && (xEventGroupGetBits(wifi_manager_event_group) & WIFI_MANAGER_WIFI_CONNECTED_BIT);
+}
+
 void append_mac_address(void)
 {
 	uint8_t mac_address[6];
