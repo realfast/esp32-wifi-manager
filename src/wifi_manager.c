@@ -1667,7 +1667,7 @@ void wifi_manager(void *pvParameters)
 				 *  23		802_1X_AUTH_FAILED			wrong password?
 				 *  24		CIPHER_SUITE_REJECTED
 				 *  200		BEACON_TIMEOUT
-				 *  201		NO_AP_FOUND
+				 *  201		NO_AP_FOUND   		        we should STOP trying to reconnect, this becomes blocking when AP is not found.  Direct connection fails as we retry over and over again.
 				 *  202		AUTH_FAIL
 				 *  203		ASSOC_FAIL
 				 *  204		HANDSHAKE_TIMEOUT
