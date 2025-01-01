@@ -96,6 +96,8 @@ TimerHandle_t wifi_manager_scan_retry_timer = NULL;
 SemaphoreHandle_t wifi_manager_json_mutex = NULL;
 SemaphoreHandle_t wifi_manager_sta_ip_mutex = NULL;
 SemaphoreHandle_t wifi_manager_event_loop_mutex = NULL;
+SemaphoreHandle_t wifi_scan_mutex = NULL;
+
 char *wifi_manager_sta_ip = NULL;
 uint16_t ap_num = MAX_AP_NUM;
 wifi_ap_record_t *accessp_records;
@@ -474,6 +476,8 @@ void wifi_manager_start()
 	wifi_manager_event_loop_mutex = xSemaphoreCreateMutex();
 	wifi_manager_event_group = xEventGroupCreate();
 
+	wifi_scan_mutex = xSemaphoreCreateMutex();
+
 	/* create timer for to keep track of retries */
 	wifi_manager_retry_timer = xTimerCreate(NULL, pdMS_TO_TICKS(CONFIG_WIFI_MANAGER_INITIAL_RETRY_MS), pdFALSE, (void *)0, wifi_manager_timer_retry_cb);
 #if WIFI_MANAGER_SHUTDOWN_AP_TIMER > 0
@@ -730,34 +734,61 @@ bool wifi_manager_wifi_sta_config_exists()
 
 bool wifi_manager_fetch_wifi_sta_config()
 {
-	wifi_scan_config_t scan_config = {
-			.ssid = 0,
-			.bssid = 0,
-			.channel = 0,
-			.show_hidden = false};
-	esp_wifi_scan_start(&scan_config, true);
-	uint16_t ap_count = 0;
-	esp_wifi_scan_get_ap_num(&ap_count);
-	wifi_ap_record_t *ap_list = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * ap_count);
-	ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, ap_list));
-
-	wifi_manager_filter_unique(ap_list, &ap_count);
-
-	bool found_saved_network = false;
-	for (int i = 0; i < ap_count; i++)
+	// Wait indefinitely for the wifi_scan_mutex
+	if (xSemaphoreTake(wifi_scan_mutex, pdMS_TO_TICKS(1000)) == pdTRUE)
 	{
-		ESP_LOGI(TAG, "SSID: %s", ap_list[i].ssid);
+		wifi_scan_config_t scan_config = {
+				.ssid = 0,
+				.bssid = 0,
+				.channel = 0,
+				.show_hidden = false};
 
-		if (wifi_manager_saved_wifi_scan(&ap_list[i]))
+		// Start the Wi-Fi scan
+		esp_wifi_scan_start(&scan_config, true);
+
+		uint16_t ap_count = 0;
+		esp_wifi_scan_get_ap_num(&ap_count);
+
+		// Allocate memory for the list of access points
+		wifi_ap_record_t *ap_list = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * ap_count);
+		if (ap_list == NULL)
 		{
-			found_saved_network = true;
-			break;
+			ESP_LOGE(TAG, "Failed to allocate memory for AP list");
+			xSemaphoreGive(wifi_scan_mutex);
+			return false;
 		}
+
+		// Retrieve the list of scanned access points
+		ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, ap_list));
+
+		// Filter unique access points
+		wifi_manager_filter_unique(ap_list, &ap_count);
+
+		bool found_saved_network = false;
+		for (int i = 0; i < ap_count; i++)
+		{
+			ESP_LOGI(TAG, "SSID: %s", ap_list[i].ssid);
+
+			if (wifi_manager_saved_wifi_scan(&ap_list[i]))
+			{
+				found_saved_network = true;
+				break;
+			}
+		}
+
+		// Free the allocated memory for the AP list
+		free(ap_list);
+
+		// Release the mutex after completing the scan
+		xSemaphoreGive(wifi_scan_mutex);
+
+		return found_saved_network;
 	}
-
-	free(ap_list);
-
-	return found_saved_network;
+	else
+	{
+		ESP_LOGE(TAG, "Failed to take wifi_scan_mutex");
+		return false;
+	}
 }
 
 void wifi_manager_clear_ip_info_json()
@@ -1255,6 +1286,8 @@ void wifi_manager_stop()
 	wifi_manager_sta_ip_mutex = NULL;
 	vSemaphoreDelete(wifi_manager_event_loop_mutex);
 	wifi_manager_event_loop_mutex = NULL;
+	vSemaphoreDelete(wifi_scan_mutex);
+	wifi_scan_mutex = NULL;
 	vEventGroupDelete(wifi_manager_event_group);
 	wifi_manager_event_group = NULL;
 	vQueueDelete(wifi_manager_queue);
@@ -1502,30 +1535,44 @@ void wifi_manager(void *pvParameters)
 					(*cb_ptr_arr[msg.code])(msg.param);
 				free(evt_scan_done);
 
+				/* Release the scan mutex as the scan operation is complete */
+				xSemaphoreGive(wifi_scan_mutex);
+
 				break;
 			}
 			case WM_ORDER_START_WIFI_SCAN:
 			{
 				ESP_LOGI(TAG, "MESSAGE: ORDER_START_WIFI_SCAN");
 
-				/* if a scan is already in progress this message is simply ignored thanks to the WIFI_MANAGER_SCAN_BIT uxBit */
-				uxBits = xEventGroupGetBits(wifi_manager_event_group);
-				if (!(uxBits & WIFI_MANAGER_SCAN_BIT))
+				/* Attempt to acquire the scan mutex */
+				if (xSemaphoreTake(wifi_scan_mutex, pdMS_TO_TICKS(1000)) == pdTRUE)
 				{
-					if (esp_wifi_scan_start(&scan_config, false) == ESP_OK)
+					/* if a scan is already in progress this message is simply ignored thanks to the WIFI_MANAGER_SCAN_BIT uxBit */
+					uxBits = xEventGroupGetBits(wifi_manager_event_group);
+					if (!(uxBits & WIFI_MANAGER_SCAN_BIT))
 					{
-						xEventGroupSetBits(wifi_manager_event_group, WIFI_MANAGER_SCAN_BIT);
+						if (esp_wifi_scan_start(&scan_config, false) == ESP_OK)
+						{
+							xEventGroupSetBits(wifi_manager_event_group, WIFI_MANAGER_SCAN_BIT);
+						}
+						else
+						{
+							/* could not start scan, possibly due to in-progress connection attempt, retry later */
+							xTimerStart(wifi_manager_scan_retry_timer, (TickType_t)0);
+						}
 					}
-					else
-					{
-						/* could not start scan, possibly due to in-progress connection attempt, retry later */
-						xTimerStart(wifi_manager_scan_retry_timer, (TickType_t)0);
-					}
-				}
 
-				/* callback */
-				if (cb_ptr_arr[msg.code])
-					(*cb_ptr_arr[msg.code])(NULL);
+					/* callback */
+					if (cb_ptr_arr[msg.code])
+						(*cb_ptr_arr[msg.code])(NULL);
+
+					/* Release the mutex after initiating the scan */
+					xSemaphoreGive(wifi_scan_mutex);
+				}
+				else
+				{
+					ESP_LOGW(TAG, "Failed to acquire scan mutex, scan request ignored");
+				}
 
 				break;
 			}
