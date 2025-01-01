@@ -394,13 +394,16 @@ void wifi_manager_start()
 	nvs_handle handle;
 
 	/* check for already-generated AP password */
-	if(nvs_sync_lock(portMAX_DELAY) && (nvs_open(wifi_manager_nvs_namespace, NVS_READWRITE, &handle) == ESP_OK)){
+	if (nvs_sync_lock(portMAX_DELAY) && (nvs_open(wifi_manager_nvs_namespace, NVS_READWRITE, &handle) == ESP_OK))
+	{
 		size_t length = sizeof(wifi_manager_ap_password);
-		if(nvs_get_str(handle, "appwd", wifi_manager_ap_password, &length) == ESP_OK){
+		if (nvs_get_str(handle, "appwd", wifi_manager_ap_password, &length) == ESP_OK)
+		{
 			/* ensure it's null-terminated */
 			wifi_manager_ap_password[AP_PASSWORD_LENGTH] = 0;
 		}
-		else{
+		else
+		{
 			/* can't get AP password from NVS, generate a new one and save
 			 * it to NVS */
 			wifi_manager_generate_ap_password();
@@ -410,7 +413,8 @@ void wifi_manager_start()
 		nvs_close(handle);
 		nvs_sync_unlock();
 	}
-	else{
+	else
+	{
 		/* NVS error, generate a new temporary AP password because we must
 		 * have one */
 		wifi_manager_generate_ap_password();
@@ -535,7 +539,7 @@ bool wifi_manager_saved_wifi_scan(wifi_ap_record_t *ap)
 	return exists;
 }
 
-//TODO!! Look into this and see if it makes sense to rewrite to cleanup
+// TODO!! Look into this and see if it makes sense to rewrite to cleanup
 esp_err_t wifi_manager_save_sta_config()
 {
 	esp_err_t esp_err;
