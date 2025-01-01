@@ -1481,10 +1481,11 @@ void wifi_manager(void *pvParameters)
 				if (cb_ptr_arr[msg.code])
 					(*cb_ptr_arr[msg.code])(msg.param);
 				free(evt_scan_done);
-			}
-			break;
 
+				break;
+			}
 			case WM_ORDER_START_WIFI_SCAN:
+			{
 				ESP_LOGI(TAG, "MESSAGE: ORDER_START_WIFI_SCAN");
 
 				/* if a scan is already in progress this message is simply ignored thanks to the WIFI_MANAGER_SCAN_BIT uxBit */
@@ -1507,8 +1508,9 @@ void wifi_manager(void *pvParameters)
 					(*cb_ptr_arr[msg.code])(NULL);
 
 				break;
-
+			}
 			case WM_ORDER_LOAD_AND_RESTORE_STA:
+			{
 				ESP_LOGI(TAG, "MESSAGE: ORDER_LOAD_AND_RESTORE_STA");
 				if (wifi_manager_fetch_wifi_sta_config())
 				{
@@ -1529,8 +1531,9 @@ void wifi_manager(void *pvParameters)
 					(*cb_ptr_arr[msg.code])(NULL);
 
 				break;
-
+			}
 			case WM_ORDER_CONNECT_STA:
+			{
 				ESP_LOGD(TAG, "MESSAGE: ORDER_CONNECT_STA");
 
 				bool skip_request = false;
@@ -1625,8 +1628,10 @@ void wifi_manager(void *pvParameters)
 					(*cb_ptr_arr[msg.code])(NULL);
 
 				break;
-
-			case WM_EVENT_STA_DISCONNECTED:;
+			}
+			case WM_EVENT_STA_DISCONNECTED:
+			{
+				;
 				wifi_event_sta_disconnected_t *wifi_event_sta_disconnected = (wifi_event_sta_disconnected_t *)msg.param;
 				ESP_LOGW(TAG, "MESSAGE: EVENT_STA_DISCONNECTED with Reason code: %d", wifi_event_sta_disconnected->reason);
 
@@ -1791,8 +1796,9 @@ void wifi_manager(void *pvParameters)
 				free(wifi_event_sta_disconnected);
 
 				break;
-
+			}
 			case WM_ORDER_START_AP:
+			{
 				ESP_LOGI(TAG, "MESSAGE: ORDER_START_AP");
 
 				uxBits = xEventGroupGetBits(wifi_manager_event_group);
@@ -1841,8 +1847,9 @@ void wifi_manager(void *pvParameters)
 				}
 
 				break;
-
+			}
 			case WM_EVENT_STA_GOT_IP:
+			{
 				ESP_LOGD(TAG, "WM_EVENT_STA_GOT_IP");
 				ip_event_got_ip_t *ip_event_got_ip = (ip_event_got_ip_t *)msg.param;
 				sta_was_connected = true;
@@ -1911,8 +1918,9 @@ void wifi_manager(void *pvParameters)
 				free(ip_event_got_ip);
 
 				break;
-
+			}
 			case WM_ORDER_DISCONNECT_STA:
+			{
 				ESP_LOGI(TAG, "MESSAGE: ORDER_DISCONNECT_STA");
 
 				/* precise this is coming from a user request */
@@ -1926,8 +1934,9 @@ void wifi_manager(void *pvParameters)
 					(*cb_ptr_arr[msg.code])(NULL);
 
 				break;
-
+			}
 			case WM_ORDER_EXIT:
+			{
 				/* disconnect anyone connected to softAP so that we can bring down servers */
 				esp_wifi_set_mode(WIFI_MODE_STA);
 				vTaskDelay(pdMS_TO_TICKS(500));
@@ -1935,22 +1944,26 @@ void wifi_manager(void *pvParameters)
 				dns_server_stop();
 				finished = true;
 				break;
-
+			}
 			case WM_EVENT_AP_STACONNECTED:
+			{
 				/* callback */
 				if (cb_ptr_arr[msg.code])
 					(*cb_ptr_arr[msg.code])(NULL);
 				break;
-
+			}
 			case WM_EVENT_AP_STADISCONNECTED:
+			{
 				/* callback */
 				if (cb_ptr_arr[msg.code])
 					(*cb_ptr_arr[msg.code])(NULL);
 				break;
-
+			}
 			default:
-				break;
+			{
 
+				break;
+			}
 			} /* end of switch/case */
 		} /* end of if status=pdPASS */
 	} /* end of while loop */
