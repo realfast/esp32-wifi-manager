@@ -2078,3 +2078,293 @@ bool wifi_manager_are_clients_connected(void)
 	}
 	return false;
 }
+
+char *wifi_manager_get_saved_aps_json(void)
+{
+	nvs_handle handle;
+	esp_err_t esp_err;
+	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
+	size_t required_size = sizeof(saved_networks);
+	char json_string = NULL;
+	// Lock NVS for thread-safe access
+	if (!nvs_sync_lock(portMAX_DELAY))
+	{
+		ESP_LOGE(TAG, "Failed to lock NVS for reading saved APs.");
+		return NULL;
+	}
+	// Open NVS namespace
+	esp_err = nvs_open(wifi_manager_nvs_namespace, NVS_READONLY, &handle);
+	if (esp_err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to open NVS namespace (%s)", esp_err_to_name(esp_err));
+		nvs_sync_unlock();
+		return NULL;
+	}
+	// Read saved networks from NVS
+	esp_err = nvs_get_blob(handle, "saved_networks", saved_networks, &required_size);
+	if (esp_err != ESP_OK)
+	{
+		if (esp_err == ESP_ERR_NVS_NOT_FOUND)
+		{
+			ESP_LOGI(TAG, "No saved networks found in NVS.");
+		}
+		else
+		{
+			ESP_LOGE(TAG, "Error reading saved networks from NVS (%s)", esp_err_to_name(esp_err));
+		}
+		nvs_close(handle);
+		nvs_sync_unlock();
+		return NULL;
+	}
+
+	// Close NVS namespace
+	nvs_close(handle);
+	nvs_sync_unlock();
+	// Create JSON array
+	cJSON *wifi_scan_json = cJSON_CreateArray();
+	if (wifi_scan_json == NULL)
+	{
+		ESP_LOGE(TAG, "Failed to create JSON array.");
+		return NULL;
+	}
+	// Iterate through saved networks and add to JSON array
+	for (int i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+	{
+		if (saved_networks[i].ssid[0] != '\0')
+		{
+			cJSON *entry = cJSON_CreateObject();
+			if (entry == NULL)
+			{
+				ESP_LOGE(TAG, "Failed to create JSON object.");
+				cJSON_Delete(wifi_scan_json);
+				return NULL;
+			}
+			cJSON_AddStringToObject(entry, "ssid", saved_networks[i].ssid);
+			cJSON_AddStringToObject(entry, "password", saved_networks[i].password);
+			cJSON_AddItemToArray(wifi_scan_json, entry);
+		}
+	}
+	// Convert JSON array to string
+	json_string = cJSON_PrintUnformatted(wifi_scan_json);
+	if (json_string == NULL)
+	{
+		ESP_LOGE(TAG, "Failed to print JSON string.");
+	}
+	// Cleanup
+	cJSON_Delete(wifi_scan_json);
+	return json_string;
+}
+
+esp_err_t wifi_manager_delete_saved_ap(const char *ssid)
+{
+	nvs_handle handle;
+	esp_err_t err;
+	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
+	size_t required_size = sizeof(saved_networks);
+	bool found = false;
+
+	// Lock NVS for thread-safe access
+	if (!nvs_sync_lock(portMAX_DELAY))
+	{
+		ESP_LOGE(TAG, "Failed to lock NVS for deleting saved AP.");
+		return ESP_FAIL;
+	}
+
+	// Open NVS namespace
+	err = nvs_open(wifi_manager_nvs_namespace, NVS_READWRITE, &handle);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to open NVS namespace (%s)", esp_err_to_name(err));
+		nvs_sync_unlock();
+		return err;
+	}
+
+	// Read saved networks from NVS
+	err = nvs_get_blob(handle, "saved_networks", saved_networks, &required_size);
+	if (err != ESP_OK)
+	{
+		if (err == ESP_ERR_NVS_NOT_FOUND)
+		{
+			ESP_LOGI(TAG, "No saved networks found in NVS.");
+		}
+		else
+		{
+			ESP_LOGE(TAG, "Error reading saved networks from NVS (%s)", esp_err_to_name(err));
+		}
+		nvs_close(handle);
+		nvs_sync_unlock();
+		return err;
+	}
+
+	// Search for the AP with the given SSID
+	for (int i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+	{
+		if (strcmp((char *)saved_networks[i].ssid, ssid) == 0)
+		{
+			// Found the AP, delete it by clearing its SSID and password
+			memset(saved_networks[i].ssid, 0, sizeof(saved_networks[i].ssid));
+			memset(saved_networks[i].password, 0, sizeof(saved_networks[i].password));
+			found = true;
+			break;
+		}
+	}
+
+	if (!found)
+	{
+		ESP_LOGI(TAG, "SSID '%s' not found in saved networks.", ssid);
+		nvs_close(handle);
+		nvs_sync_unlock();
+		return ESP_ERR_NVS_NOT_FOUND;
+	}
+
+	// Save the updated saved networks back to NVS
+	err = nvs_set_blob(handle, "saved_networks", saved_networks, sizeof(saved_networks));
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Error saving updated networks to NVS (%s)", esp_err_to_name(err));
+		nvs_close(handle);
+		nvs_sync_unlock();
+		return err;
+	}
+
+	// Commit changes to NVS
+	err = nvs_commit(handle);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Error committing changes to NVS (%s)", esp_err_to_name(err));
+		nvs_close(handle);
+		nvs_sync_unlock();
+		return err;
+	}
+
+	// Close NVS namespace and unlock
+	nvs_close(handle);
+	nvs_sync_unlock();
+
+	ESP_LOGI(TAG, "SSID '%s' successfully deleted from saved networks.", ssid);
+	return ESP_OK;
+}
+
+/**
+ * @brief Updates the password of a saved Access Point in NVS by SSID.
+ *
+ * This function searches for the Access Point with the specified SSID in the
+ * "saved_networks" blob within NVS. If found, it updates the password for that
+ * Access Point and writes the updated configuration back to NVS.
+ *
+ * @param ssid The SSID of the Access Point whose password is to be updated.
+ * @param new_password The new password to set for the specified Access Point.
+ * @return esp_err_t ESP_OK on successful update,
+ *                  ESP_ERR_NVS_NOT_FOUND if the SSID does not exist,
+ *                  ESP_ERR_INVALID_ARG if input parameters are invalid,
+ *                  Other ESP_ERR_* codes for different errors.
+ */
+esp_err_t wifi_manager_update_ap_password(const char *ssid, const char *new_password)
+{
+	if (ssid == NULL || new_password == NULL)
+	{
+		ESP_LOGE(TAG, "SSID or new_password is NULL.");
+		return ESP_ERR_INVALID_ARG;
+	}
+
+	if (strlen(ssid) > MAX_SSID_SIZE)
+	{
+		ESP_LOGE(TAG, "SSID length exceeds maximum allowed size.");
+		return ESP_ERR_INVALID_ARG;
+	}
+
+	if (strlen(new_password) > MAX_PASSWORD_SIZE)
+	{
+		ESP_LOGE(TAG, "New password length exceeds maximum allowed size.");
+		return ESP_ERR_INVALID_ARG;
+	}
+
+	nvs_handle handle;
+	esp_err_t err;
+	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
+	size_t required_size = sizeof(saved_networks);
+	bool found = false;
+
+	// Lock NVS for thread-safe access
+	if (!nvs_sync_lock(portMAX_DELAY))
+	{
+		ESP_LOGE(TAG, "Failed to lock NVS for updating AP password.");
+		return ESP_FAIL;
+	}
+
+	// Open NVS namespace
+	err = nvs_open(wifi_manager_nvs_namespace, NVS_READWRITE, &handle);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Failed to open NVS namespace (%s)", esp_err_to_name(err));
+		nvs_sync_unlock();
+		return err;
+	}
+
+	// Read saved networks from NVS
+	err = nvs_get_blob(handle, "saved_networks", saved_networks, &required_size);
+	if (err != ESP_OK)
+	{
+		if (err == ESP_ERR_NVS_NOT_FOUND)
+		{
+			ESP_LOGI(TAG, "No saved networks found in NVS.");
+		}
+		else
+		{
+			ESP_LOGE(TAG, "Error reading saved networks from NVS (%s)", esp_err_to_name(err));
+		}
+		nvs_close(handle);
+		nvs_sync_unlock();
+		return err;
+	}
+
+	// Search for the AP with the given SSID
+	for (int i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+	{
+		if (strcmp((char *)saved_networks[i].ssid, ssid) == 0)
+		{
+			// Found the AP, update its password
+			memset(saved_networks[i].password, 0, sizeof(saved_networks[i].password));
+			strncpy((char *)saved_networks[i].password, new_password, MAX_PASSWORD_SIZE);
+			saved_networks[i].password[MAX_PASSWORD_SIZE] = '\0'; // Ensure null-termination
+			found = true;
+			ESP_LOGI(TAG, "Updated password for SSID '%s'.", ssid);
+			break;
+		}
+	}
+
+	if (!found)
+	{
+		ESP_LOGI(TAG, "SSID '%s' not found in saved networks.", ssid);
+		nvs_close(handle);
+		nvs_sync_unlock();
+		return ESP_ERR_NVS_NOT_FOUND;
+	}
+
+	// Save the updated saved networks back to NVS
+	err = nvs_set_blob(handle, "saved_networks", saved_networks, sizeof(saved_networks));
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Error saving updated networks to NVS (%s)", esp_err_to_name(err));
+		nvs_close(handle);
+		nvs_sync_unlock();
+		return err;
+	}
+
+	// Commit changes to NVS
+	err = nvs_commit(handle);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE(TAG, "Error committing changes to NVS (%s)", esp_err_to_name(err));
+		nvs_close(handle);
+		nvs_sync_unlock();
+		return err;
+	}
+
+	// Close NVS namespace and unlock
+	nvs_close(handle);
+	nvs_sync_unlock();
+
+	ESP_LOGI(TAG, "Password for SSID '%s' successfully updated.", ssid);
+	return ESP_OK;
+}

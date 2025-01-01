@@ -460,6 +460,45 @@ const char *wifi_manager_get_ap_password(void);
  */
 bool wifi_manager_get_sta_connected_to_hardcoded(void);
 
+/**  @brief Retrieves all saved Access Points from NVS and returns them as a JSON string.
+ * This function reads the "saved_networks" blob from NVS, parses each saved AP,
+ * and constructs a JSON array containing all saved Access Points with their SSIDs
+ * and passwords. The returned JSON string should be freed by the caller when no longer needed.
+ * @return A dynamically allocated JSON string representing all saved APs.
+ * Returns NULL if an error occurs or no APs are saved.
+ */
+char *wifi_manager_get_saved_aps_json(void);
+
+/**
+ * @brief Deletes a saved Access Point from NVS by SSID.
+ *
+ * This function removes the Access Point configuration with the specified SSID
+ * from the "saved_networks" blob in NVS. After deletion, the updated list of
+ * saved networks is written back to NVS.
+ *
+ * @param ssid The SSID of the Access Point to delete.
+ * @return esp_err_t ESP_OK on successful deletion,
+ *                  ESP_ERR_NVS_NOT_FOUND if the SSID does not exist,
+ *                  Other ESP_ERR_* codes for different errors.
+ */
+esp_err_t wifi_manager_delete_saved_ap(const char *ssid);
+
+/**
+ * @brief Updates the password of a saved Access Point in NVS by SSID.
+ *
+ * This function searches for the Access Point with the specified SSID in the
+ * "saved_networks" blob within NVS. If found, it updates the password for that
+ * Access Point and writes the updated configuration back to NVS.
+ *
+ * @param ssid The SSID of the Access Point whose password is to be updated.
+ * @param new_password The new password to set for the specified Access Point.
+ * @return esp_err_t ESP_OK on successful update,
+ *                  ESP_ERR_NVS_NOT_FOUND if the SSID does not exist,
+ *                  ESP_ERR_INVALID_ARG if input parameters are invalid,
+ *                  Other ESP_ERR_* codes for different errors.
+ */
+esp_err_t wifi_manager_update_ap_password(const char *ssid, const char *new_password);
+
 #ifdef __cplusplus
 }
 #endif
