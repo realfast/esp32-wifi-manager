@@ -365,6 +365,25 @@ void wifi_manager_init()
 	ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, ESP_EVENT_ANY_ID, &wifi_manager_event_handler, NULL, &instance_ip_event));
 }
 
+static void initialize_wifi_manager_config_sta(wifi_config_t *config)
+{
+	if (config == NULL)
+	{
+		ESP_LOGE(TAG, "Invalid config pointer passed to initialize_wifi_manager_config_sta");
+		return;
+	}
+
+	memset(config, 0x00, sizeof(wifi_config_t));
+	config->sta.scan_method = CONFIG_WIFI_DEFAULT_STA_SCAN_METHOD;
+	config->sta.failure_retry_cnt = CONFIG_WIFI_DEFAULT_STA_CONNECT_RETRY_CNT;
+	config->sta.sort_method = CONFIG_WIFI_DEFAULT_STA_SORT_METHOD;
+	config->sta.threshold.rssi = CONFIG_WIFI_DEFAULT_STA_CONNECT_MIN_RSSI;
+	config->sta.rm_enabled = CONFIG_WIFI_DEFAULT_STA_RM_ENABLED;
+	config->sta.btm_enabled = CONFIG_WIFI_DEFAULT_STA_BTM_ENABLED;
+	config->sta.mbo_enabled = CONFIG_WIFI_DEFAULT_STA_MBO_ENABLED;
+	config->sta.ft_enabled = CONFIG_WIFI_DEFAULT_STA_FT_ENABLED;
+}
+
 void wifi_manager_start()
 {
 
@@ -410,7 +429,7 @@ void wifi_manager_start()
 	ip_info_json = (char *)malloc(sizeof(char) * JSON_IP_INFO_SIZE);
 	wifi_manager_clear_ip_info_json();
 	wifi_manager_config_sta = (wifi_config_t *)malloc(sizeof(wifi_config_t));
-	memset(wifi_manager_config_sta, 0x00, sizeof(wifi_config_t));
+	initialize_wifi_manager_config_sta(wifi_manager_config_sta);
 	memset(&wifi_settings.sta_static_ip_config, 0x00, sizeof(esp_netif_ip_info_t));
 	cb_ptr_arr = malloc(sizeof(void (*)(void *)) * WM_MESSAGE_CODE_COUNT);
 	for (int i = 0; i < WM_MESSAGE_CODE_COUNT; i++)
@@ -1576,7 +1595,7 @@ void wifi_manager(void *pvParameters)
 						/* Copy saved SSID/password and into the STA config.
 						 * This is only safe to do if there isn't a connection is progress. */
 						wifi_config_t *config = wifi_manager_get_wifi_sta_config();
-						memset(config, 0x00, sizeof(wifi_config_t));
+						initialize_wifi_manager_config_sta(config);
 						memcpy(config->sta.ssid, connect_request_ssid, MAX_SSID_SIZE);
 						memcpy(config->sta.password, connect_request_password, MAX_PASSWORD_SIZE);
 					}
@@ -1724,7 +1743,7 @@ void wifi_manager(void *pvParameters)
 					xEventGroupClearBits(wifi_manager_event_group, WIFI_MANAGER_REQUEST_DEFERRED_CONNECT);
 					/* Copy saved SSID/password and into the STA config. */
 					wifi_config_t *config = wifi_manager_get_wifi_sta_config();
-					memset(config, 0x00, sizeof(wifi_config_t));
+					initialize_wifi_manager_config_sta(config);
 					memcpy(config->sta.ssid, connect_request_ssid, MAX_SSID_SIZE);
 					memcpy(config->sta.password, connect_request_password, MAX_PASSWORD_SIZE);
 					/* esp_wifi_set_config() must be called before doing the deferred connect, otherwise

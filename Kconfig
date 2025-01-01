@@ -110,4 +110,61 @@ config HARDCODED_PASSWORD
   	help
   	For factory configuration, the device will attempt to connect an an AP with this password if there are no user configured APs.
 
+
+config WIFI_DEFAULT_STA_CONNECT_RETRY_CNT
+    int "STA Connect Retry Count"
+    default 5
+    range 0 25
+    help
+        Number of times to retry to connect to an AP.
+
+config WIFI_DEFAULT_STA_CONNECT_MIN_RSSI
+    int "STA Connect Minimum RSSI"
+    default -80
+    range -100 0
+    help
+        Minimum RSSI allowed to connect to an AP.
+    
+config WIFI_DEFAULT_STA_SCAN_METHOD
+    int "Default STA Scan Method"
+    default 1
+    range 0 1
+    help
+        Default STA Scan Method. 0=WIFI_FAST_SCAN, 1=WIFI_ALL_CHANNEL_SCAN.
+
+config WIFI_DEFAULT_STA_SORT_METHOD
+    int "Default STA Sort Method"
+    default 0
+    range 0 1
+    help
+        Default STA Sort Method. 0=WIFI_CONNECT_AP_BY_SIGNAL, 1=WIFI_CONNECT_AP_BY_SECURITY.
+
+config WIFI_DEFAULT_STA_RM_ENABLED
+    int "Default STA RM Enabled"
+    default 1
+    range 0 1
+    help
+        Default STA RM Enabled. 0=disabled, 1=enabled
+
+config WIFI_DEFAULT_STA_BTM_ENABLED
+    int "Default STA BTM Enabled"
+    default 1
+    range 0 1
+    help
+        Default STA BTM Enabled. 0=disabled, 1=enabled
+
+config WIFI_DEFAULT_STA_MBO_ENABLED
+    int "Default STA MBO Enabled"
+    default 1
+    range 0 1
+    help
+        Default STA MBO Enabled. 0=disabled, 1=enabled
+
+config WIFI_DEFAULT_STA_FT_ENABLED
+    int "Default STA FT Enabled"
+    default 1
+    range 0 1
+    help
+        Default STA FT Enabled. 0=disabled, 1=enabled
+
 endmenu
