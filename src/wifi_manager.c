@@ -198,6 +198,7 @@ void reset_retry_timer(void)
 	xTimerStop(wifi_manager_retry_timer, (TickType_t)0);
 	current_retry_interval = CONFIG_WIFI_MANAGER_INITIAL_RETRY_MS;
 	xTimerChangePeriod(wifi_manager_retry_timer, pdMS_TO_TICKS(current_retry_interval), 0);
+	ESP_LOGW(TAG, "resetting retry timer to %ld ms", current_retry_interval);
 }
 
 void decelerate_retry_timer(void)
@@ -213,7 +214,7 @@ void decelerate_retry_timer(void)
 			current_retry_interval = CONFIG_WIFI_MANAGER_MAX_RETRY_MS;
 		}
 
-		ESP_LOGI(TAG, "Next retry interval set to %ld ms", current_retry_interval);
+		ESP_LOGW(TAG, "Next retry interval set to %ld ms", current_retry_interval);
 	}
 	xTimerChangePeriod(wifi_manager_retry_timer, pdMS_TO_TICKS(current_retry_interval), 0);
 }
