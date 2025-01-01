@@ -696,84 +696,37 @@ bool wifi_manager_wifi_sta_config_exists()
 	return false;
 }
 
-bool wifi_manager_fetch_wifi_sta_config(){
+bool wifi_manager_fetch_wifi_sta_config()
+{
+	wifi_scan_config_t scan_config = {
+			.ssid = 0,
+			.bssid = 0,
+			.channel = 0,
+			.show_hidden = false};
+	esp_wifi_scan_start(&scan_config, true);
+	uint16_t ap_count = 0;
+	esp_wifi_scan_get_ap_num(&ap_count);
+	wifi_ap_record_t *ap_list = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * ap_count);
+	ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, ap_list));
 
-	nvs_handle handle;
-	esp_err_t esp_err;
-	if(nvs_sync_lock( portMAX_DELAY )){
+	wifi_manager_filter_unique(ap_list, &ap_count);
 
-		esp_err = nvs_open(wifi_manager_nvs_namespace, NVS_READONLY, &handle);
+	bool found_saved_network = false;
+	for (int i = 0; i < ap_count; i++)
+	{
+		ESP_LOGI(TAG, "SSID: %s", ap_list[i].ssid);
 
-		if(esp_err != ESP_OK){
-			nvs_sync_unlock();
-			return false;
+		if (wifi_manager_saved_wifi_scan(&ap_list[i]))
+		{
+			found_saved_network = true;
+			break;
 		}
-
-		if(wifi_manager_config_sta == NULL){
-			wifi_manager_config_sta = (wifi_config_t*)malloc(sizeof(wifi_config_t));
-		}
-		memset(wifi_manager_config_sta, 0x00, sizeof(wifi_config_t));
-
-		/* allocate buffer */
-		size_t sz = sizeof(wifi_settings);
-		uint8_t *buff = (uint8_t*)malloc(sizeof(uint8_t) * sz);
-		memset(buff, 0x00, sizeof(sz));
-
-		/* ssid */
-		sz = sizeof(wifi_manager_config_sta->sta.ssid);
-		esp_err = nvs_get_blob(handle, "ssid", buff, &sz);
-		if(esp_err != ESP_OK){
-			free(buff);
-			nvs_sync_unlock();
-			return false;
-		}
-		memcpy(wifi_manager_config_sta->sta.ssid, buff, sz);
-
-		/* password */
-		sz = sizeof(wifi_manager_config_sta->sta.password);
-		esp_err = nvs_get_blob(handle, "password", buff, &sz);
-		if(esp_err != ESP_OK){
-			free(buff);
-			nvs_sync_unlock();
-			return false;
-		}
-		memcpy(wifi_manager_config_sta->sta.password, buff, sz);
-
-		/* settings */
-		sz = sizeof(wifi_settings);
-		esp_err = nvs_get_blob(handle, "settings", buff, &sz);
-		if(esp_err != ESP_OK){
-			free(buff);
-			nvs_sync_unlock();
-			return false;
-		}
-		memcpy(&wifi_settings, buff, sz);
-
-		free(buff);
-		nvs_close(handle);
-		nvs_sync_unlock();
-
-
-		ESP_LOGI(TAG, "wifi_manager_fetch_wifi_sta_config: ssid:%s password:%s",wifi_manager_config_sta->sta.ssid,wifi_manager_config_sta->sta.password);
-		ESP_LOGD(TAG, "wifi_manager_fetch_wifi_settings: SoftAP_ssid:%s",wifi_settings.ap_ssid);
-		ESP_LOGD(TAG, "wifi_manager_fetch_wifi_settings: SoftAP_pwd:%s",wifi_settings.ap_pwd);
-		ESP_LOGD(TAG, "wifi_manager_fetch_wifi_settings: SoftAP_channel:%i",wifi_settings.ap_channel);
-		ESP_LOGD(TAG, "wifi_manager_fetch_wifi_settings: SoftAP_hidden (1 = yes):%i",wifi_settings.ap_ssid_hidden);
-		ESP_LOGD(TAG, "wifi_manager_fetch_wifi_settings: SoftAP_bandwidth (1 = 20MHz, 2 = 40MHz)%i",wifi_settings.ap_bandwidth);
-		ESP_LOGD(TAG, "wifi_manager_fetch_wifi_settings: sta_only (0 = APSTA, 1 = STA when connected):%i",wifi_settings.sta_only);
-		ESP_LOGD(TAG, "wifi_manager_fetch_wifi_settings: sta_power_save (1 = yes):%i",wifi_settings.sta_power_save);
-		ESP_LOGD(TAG, "wifi_manager_fetch_wifi_settings: sta_static_ip (0 = dhcp client, 1 = static ip):%i",wifi_settings.sta_static_ip);
-
-		return wifi_manager_config_sta->sta.ssid[0] != '\0';
-
-
-	}
-	else{
-		return false;
 	}
 
+	free(ap_list);
+
+	return found_saved_network;
 }
-
 
 void wifi_manager_clear_ip_info_json()
 {
