@@ -156,7 +156,7 @@ wifi_settings_t wifi_settings = {
 
 const char wifi_manager_nvs_namespace[] = "espwifimgr";
 
-static EventGroupHandle_t wifi_manager_event_group;
+static EventGroupHandle_t wifi_manager_event_group = 0;
 
 /* @brief indicate that the ESP32 is currently connected. */
 const int WIFI_MANAGER_WIFI_CONNECTED_BIT = BIT0;
@@ -1924,8 +1924,8 @@ void wifi_manager(void *pvParameters)
 				reset_retry_timer();
 				uxBits = xEventGroupGetBits(wifi_manager_event_group);
 
-				/* reset connection requests bits -- doesn't matter if it was set or not */
-				xEventGroupClearBits(wifi_manager_event_group, WIFI_MANAGER_REQUEST_STA_CONNECT_BIT);
+				/* reset connection requests bits and disconnect bit -- doesn't matter if it was set or not */
+				xEventGroupClearBits(wifi_manager_event_group, WIFI_MANAGER_REQUEST_STA_CONNECT_BIT | WIFI_MANAGER_REQUEST_DISCONNECT_BIT);
 
 				/* save IP as a string for the HTTP server host */
 				wifi_manager_safe_update_sta_ip_string(ip_event_got_ip->ip_info.ip.addr);
