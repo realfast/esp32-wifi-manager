@@ -241,7 +241,6 @@ void wifi_manager_filter_unique(wifi_ap_record_t *aplist, uint16_t *aps)
 			{
 				aplist[unique_count] = aplist[i];
 				aplist[i].ssid[0] = 0; // Mark as moved
-															 // ESP_LOGI(TAG, "Filtered AP: %s with BSSID: " MACSTR, aplist[unique_count].ssid, MAC2STR(aplist[unique_count].bssid));
 			}
 			unique_count++;
 		}
