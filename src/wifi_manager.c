@@ -213,7 +213,7 @@ void wifi_manager_filter_unique(wifi_ap_record_t *aplist, uint16_t *aps)
 
 	for (uint16_t i = 0; i < *aps; i++)
 	{
-		if (aplist[i].ssid[0] == 0)
+		if ((aplist[i].ssid[0] == 0) || (aplist[i].rssi < CONFIG_WIFI_DEFAULT_STA_CONNECT_MIN_RSSI))
 		{
 			continue; // Skip already removed APs
 		}
