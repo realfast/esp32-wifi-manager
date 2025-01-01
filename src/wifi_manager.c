@@ -282,7 +282,7 @@ void wifi_manager_timer_retry_cb(TimerHandle_t xTimer)
 	xTimerStop(xTimer, (TickType_t)0);
 
 	/* Attempt to reconnect */
-	wifi_manager_send_message(WM_ORDER_CONNECT_STA, (void *)CONNECTION_REQUEST_AUTO_RECONNECT);
+	wifi_manager_send_message(WM_ORDER_LOAD_AND_RESTORE_STA, NULL);
 }
 
 void wifi_manager_timer_shutdown_ap_cb(TimerHandle_t xTimer)
