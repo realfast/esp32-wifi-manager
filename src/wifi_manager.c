@@ -1623,7 +1623,7 @@ void wifi_manager(void *pvParameters)
 			{
 				;
 				wifi_event_sta_disconnected_t *wifi_event_sta_disconnected = (wifi_event_sta_disconnected_t *)msg.param;
-				ESP_LOGW(TAG, "MESSAGE: EVENT_STA_DISCONNECTED with Reason code: %d", wifi_event_sta_disconnected->reason);
+				ESP_LOGW(TAG, "MESSAGE: EVENT_STA_DISCONNECTED with Reason code: %d at BSSID: " MACSTR, wifi_event_sta_disconnected->reason, MAC2STR(wifi_event_sta_disconnected->bssid));
 
 				/* this even can be posted in numerous different conditions
 				 *
