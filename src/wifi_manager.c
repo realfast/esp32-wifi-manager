@@ -304,6 +304,12 @@ void append_mac_address(void)
 
 void wifi_manager_timer_retry_cb(TimerHandle_t xTimer)
 {
+	if (wifi_manager_is_sta_connected())
+	{
+		ESP_LOGI(TAG, "Wifi is connected, skipping retry");
+		reset_retry_timer();
+		return;
+	}
 
 	ESP_LOGI(TAG, "Retry Timer Tick! Sending ORDER_CONNECT_STA with reason CONNECTION_REQUEST_AUTO_RECONNECT");
 
