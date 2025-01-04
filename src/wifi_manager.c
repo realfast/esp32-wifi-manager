@@ -292,11 +292,6 @@ void wifi_manager_filter_unique(wifi_ap_record_t *aplist, uint16_t *aps)
 	}
 }
 
-bool wifi_manager_is_sta_connected(void)
-{
-	return (wifi_manager_event_group != NULL) && (xEventGroupGetBits(wifi_manager_event_group) & WIFI_MANAGER_WIFI_CONNECTED_BIT);
-}
-
 void append_mac_address(void)
 {
 	uint8_t mac_address[6];
@@ -2122,6 +2117,12 @@ bool wifi_manager_get_sta_connected_to_hardcoded(void)
 {
 	return sta_connected_to_hardcoded;
 }
+
+bool wifi_manager_is_sta_connected(void)
+{
+	return (wifi_manager_event_group != NULL) && (xEventGroupGetBits(wifi_manager_event_group) & WIFI_MANAGER_WIFI_CONNECTED_BIT);
+}
+
 bool wifi_manager_are_clients_connected(void)
 {
 	wifi_sta_list_t sta_list;

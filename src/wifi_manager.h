@@ -460,6 +460,16 @@ const char *wifi_manager_get_ap_password(void);
  */
 bool wifi_manager_get_sta_connected_to_hardcoded(void);
 
+/**
+ * @brief Check if STA is connected to any AP.
+ */
+bool wifi_manager_is_sta_connected(void);
+
+/**
+ * @brief Check if AP has any clients connected.
+ */
+bool wifi_manager_are_clients_connected(void);
+
 /**  @brief Retrieves all saved Access Points from NVS and returns them as a JSON string.
  * This function reads the "saved_networks" blob from NVS, parses each saved AP,
  * and constructs a JSON array containing all saved Access Points with their SSIDs
