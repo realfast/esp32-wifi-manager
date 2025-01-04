@@ -1896,3 +1896,12 @@ bool wifi_manager_get_sta_connected_to_hardcoded(void)
 {
 	return sta_connected_to_hardcoded;
 }
+bool wifi_manager_are_clients_connected(void)
+{
+	wifi_sta_list_t sta_list;
+	if (esp_wifi_ap_get_sta_list(&sta_list) == ESP_OK)
+	{
+		return (sta_list.num > 0);
+	}
+	return false;
+}
