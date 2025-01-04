@@ -189,6 +189,74 @@ const int WIFI_MANAGER_REQUEST_DEFERRED_CONNECT = BIT10;
 /* Prototypes */
 static void wifi_manager_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 
+int compare_rssi(const void *a, const void *b)
+{
+	wifi_ap_record_t *ap_a = (wifi_ap_record_t *)a;
+	wifi_ap_record_t *ap_b = (wifi_ap_record_t *)b;
+
+	if (ap_a->rssi > ap_b->rssi)
+		return -1; // ap_a should come before ap_b
+	else if (ap_a->rssi < ap_b->rssi)
+		return 1; // ap_b should come before ap_a
+	else
+		return 0; // No change in order
+}
+
+void wifi_manager_filter_unique(wifi_ap_record_t *aplist, uint16_t *aps)
+{
+	if (!aplist || !aps || *aps == 0)
+	{
+		return;
+	}
+
+	int unique_count = 0;
+
+	for (uint16_t i = 0; i < *aps; i++)
+	{
+		if (aplist[i].ssid[0] == 0)
+		{
+			continue; // Skip already removed APs
+		}
+
+		bool is_unique = true;
+		for (uint16_t j = 0; j < unique_count; j++)
+		{
+			if (strcmp((const char *)aplist[i].ssid, (const char *)aplist[j].ssid) == 0 &&
+					aplist[i].authmode == aplist[j].authmode)
+			{
+				// If current AP has higher RSSI, replace the existing one
+				if (aplist[i].rssi > aplist[j].rssi)
+				{
+					aplist[j] = aplist[i];
+				}
+				aplist[i].ssid[0] = 0; // Mark as removed
+				is_unique = false;
+				break;
+			}
+		}
+
+		if (is_unique)
+		{
+			if (unique_count != i)
+			{
+				aplist[unique_count] = aplist[i];
+				aplist[i].ssid[0] = 0; // Mark as moved
+															 // ESP_LOGI(TAG, "Filtered AP: %s with BSSID: " MACSTR, aplist[unique_count].ssid, MAC2STR(aplist[unique_count].bssid));
+			}
+			unique_count++;
+		}
+	}
+
+	qsort(aplist, unique_count, sizeof(wifi_ap_record_t), compare_rssi);
+
+	*aps = unique_count;
+	// print the list of APs
+	for (uint16_t i = 0; i < *aps; i++)
+	{
+		ESP_LOGI(TAG, "Filtered AP: %s RSSI: %d BSSID: " MACSTR, aplist[i].ssid, aplist[i].rssi, MAC2STR(aplist[i].bssid));
+	}
+}
+
 bool wifi_manager_is_sta_connected(void)
 {
 	return (wifi_manager_event_group != NULL) && (xEventGroupGetBits(wifi_manager_event_group) & WIFI_MANAGER_WIFI_CONNECTED_BIT);
@@ -1202,59 +1270,6 @@ void wifi_manager_stop()
 	/* stop things */
 	esp_wifi_stop();
 	ESP_LOGI(TAG, "got to end of wifi_manager_stop()");
-}
-
-
-void wifi_manager_filter_unique( wifi_ap_record_t * aplist, uint16_t * aps) {
-	int total_unique;
-	wifi_ap_record_t * first_free;
-	total_unique=*aps;
-
-	first_free=NULL;
-
-	for(int i=0; i<*aps-1;i++) {
-		wifi_ap_record_t * ap = &aplist[i];
-
-		/* skip the previously removed APs */
-		if (ap->ssid[0] == 0) continue;
-
-		/* remove the identical SSID+authmodes */
-		for(int j=i+1; j<*aps;j++) {
-			wifi_ap_record_t * ap1 = &aplist[j];
-			if ( (strcmp((const char *)ap->ssid, (const char *)ap1->ssid)==0) && 
-			     (ap->authmode == ap1->authmode) ) { /* same SSID, different auth mode is skipped */
-				/* save the rssi for the display */
-				if ((ap1->rssi) > (ap->rssi)) ap->rssi=ap1->rssi;
-				/* clearing the record */
-				memset(ap1,0, sizeof(wifi_ap_record_t));
-			}
-		}
-	}
-	/* reorder the list so APs follow each other in the list */
-	for(int i=0; i<*aps;i++) {
-		wifi_ap_record_t * ap = &aplist[i];
-		/* skipping all that has no name */
-		if (ap->ssid[0] == 0) {
-			/* mark the first free slot */
-			if (first_free==NULL) first_free=ap;
-			total_unique--;
-			continue;
-		}
-		if (first_free!=NULL) {
-			memcpy(first_free, ap, sizeof(wifi_ap_record_t));
-			memset(ap,0, sizeof(wifi_ap_record_t));
-			/* find the next free slot */
-			for(int j=0; j<*aps;j++) {
-				if (aplist[j].ssid[0]==0) {
-					first_free=&aplist[j];
-					break;
-				}
-			}
-		}
-	}
-	/* update the length of the list */
-
-	*aps = unique_count;
 }
 
 BaseType_t wifi_manager_send_message_to_front(message_code_t code, void *param)
