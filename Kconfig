@@ -26,7 +26,7 @@ config WIFI_MANAGER_SHUTDOWN_AP_TIMER
 	int "Time (in ms) to wait before shutting down the AP"
 	default 60000
 	help
-	Defines the time (in ms) to wait after a succesful connection before shutting down the access point. Use a negative number to never shut down the access point.
+	Defines the time (in ms) to wait after a succesful connection before shutting down the access point. Use a 0 or negative number to never shut down the access point.
 
 config WEBAPP_LOCATION
     string "Defines the URL where the wifi manager is located"
