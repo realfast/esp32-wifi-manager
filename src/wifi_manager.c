@@ -40,7 +40,6 @@ Contains the freeRTOS task and all necessary support
 #include <freertos/task.h>
 #include <freertos/event_groups.h>
 #include <freertos/timers.h>
-#include <http_app.h>
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
@@ -59,6 +58,9 @@ Contains the freeRTOS task and all necessary support
 #include "wifi_manager.h"
 #include "cJSON.h"
 
+#ifdef CONFIG_HTTP_APP_ENABLED
+#include "http_app.h"
+#endif
 
 /** Number of characters in AP password. */
 #define AP_PASSWORD_LENGTH 8
@@ -77,6 +79,10 @@ static const char wifi_manager_ap_chars[] = "abcdefghjkmnpqrstuvwxyz23456789";
 /** Random password for AP. */
 static char wifi_manager_ap_password[AP_PASSWORD_LENGTH + 1];
 #endif // CONFIG_USE_RANDOM_AP_PASSWORD
+
+#ifdef CONFIG_WIFI_POWER_ADJUSTABLE
+uint8_t wifiPower = 0;
+#endif // CONFIG_WIFI_POWER_ADJUSTABLE
 
 /* objects used to manipulate the main queue of events */
 QueueHandle_t wifi_manager_queue;
@@ -1266,7 +1272,9 @@ void wifi_manager_stop()
 		vTaskDelete(task_wifi_manager);
 		task_wifi_manager = NULL;
 		dns_server_stop();
+#ifdef CONFIG_HTTP_APP_ENABLED
 		http_app_stop();
+#endif
 	}
 
 	/* heap buffers */
@@ -1483,8 +1491,40 @@ void wifi_manager(void *pvParameters)
 
 	ESP_ERROR_CHECK(esp_wifi_start());
 
+#ifdef CONFIG_HTTP_APP_ENABLED
 	/* start http server */
 	http_app_start(false);
+#endif
+
+#ifdef CONFIG_WIFI_POWER_ADJUSTABLE
+
+	nvs_handle_t device_settings_handle;
+
+	esp_err_t err = nvs_open("nvs", NVS_READWRITE, &device_settings_handle);
+	if (err != ESP_OK)
+	{
+		ESP_LOGE("NVS", "Error %s opening NVS handle!\n", esp_err_to_name(err));
+	}
+	else
+	{
+		err = nvs_get_u8(device_settings_handle, "wifiPower", &wifiPower);
+		if (err != ESP_OK)
+		{
+			wifiPower = CONFIG_WIFI_POWER_DEFAULT;
+
+			ESP_LOGE("NVS", "Failed to read wifiPower from NVS, setting to 0");
+			err = nvs_set_u8(device_settings_handle, "wifiPower", wifiPower);
+			if (err != ESP_OK)
+			{
+				ESP_LOGE("NVS", "Failed to write wifiPower to NVS");
+			}
+		}
+	}
+
+	nvs_close(device_settings_handle);
+
+	esp_wifi_set_max_tx_power(wifiPower);
+#endif // CONFIG_WIFI_POWER_ADJUSTABLE
 
 	/* wifi scanner config */
 	wifi_scan_config_t scan_config = {
@@ -1881,9 +1921,11 @@ void wifi_manager(void *pvParameters)
 				{
 					ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
 
+#ifdef CONFIG_HTTP_APP_ENABLED
 					/* restart HTTP daemon */
 					http_app_stop();
 					http_app_start(true);
+#endif
 
 					/* start DNS */
 					dns_server_start();
@@ -1912,9 +1954,12 @@ void wifi_manager(void *pvParameters)
 					/* stop DNS */
 					dns_server_stop();
 
+#ifdef CONFIG_HTTP_APP_ENABLED
+
 					/* restart HTTP daemon */
 					http_app_stop();
 					http_app_start(false);
+#endif
 
 					/* callback */
 					if (cb_ptr_arr[msg.code])
@@ -2016,7 +2061,9 @@ void wifi_manager(void *pvParameters)
 				/* disconnect anyone connected to softAP so that we can bring down servers */
 				esp_wifi_set_mode(WIFI_MODE_STA);
 				vTaskDelay(pdMS_TO_TICKS(500));
+#ifdef CONFIG_HTTP_APP_ENABLED
 				http_app_stop();
+#endif
 				dns_server_stop();
 				finished = true;
 				break;

@@ -110,6 +110,25 @@ config HARDCODED_PASSWORD
   	help
   	For factory configuration, the device will attempt to connect an an AP with this password if there are no user configured APs.
 
+config HTTP_APP_ENABLED
+    bool "Enable HTTP app"
+    default n
+    help
+    If enabled, the HTTP app will be enabled.
+    
+config WIFI_POWER_ADJUSTABLE
+    bool "Adjust WiFi power"
+    default n
+    help
+    If enabled, the WiFi power will be able to be adjusted by the user.
+
+config WIFI_POWER_DEFAULT
+    int "Default WiFi power"
+    default 80
+    range 0 80
+    depends on WIFI_POWER_ADJUSTABLE
+    help
+        Default WiFi power in dBm; 0=40, 1=48, 2=56, 3=64, 4=72, 5=80
 
 config WIFI_DEFAULT_STA_CONNECT_RETRY_CNT
     int "STA Connect Retry Count"
