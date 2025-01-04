@@ -136,6 +136,8 @@ static char connect_request_ssid[MAX_SSID_SIZE + 1];
 /** Password of connection  requested using wifi_manager_connect_async(). */
 static char connect_request_password[MAX_PASSWORD_SIZE + 1];
 
+static uint32_t current_retry_interval = CONFIG_WIFI_MANAGER_INITIAL_RETRY_MS;
+
 /**
  * The actual WiFi settings in use
  */
@@ -188,6 +190,31 @@ const int WIFI_MANAGER_REQUEST_DEFERRED_CONNECT = BIT10;
 
 /* Prototypes */
 static void wifi_manager_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
+
+void reset_retry_timer(void)
+{
+	xTimerStop(wifi_manager_retry_timer, (TickType_t)0);
+	current_retry_interval = CONFIG_WIFI_MANAGER_INITIAL_RETRY_MS;
+	xTimerChangePeriod(wifi_manager_retry_timer, pdMS_TO_TICKS(current_retry_interval), 0);
+}
+
+void decelerate_retry_timer(void)
+{
+	ESP_LOGI(TAG, "Decelerating retry timer tick!");
+
+	/* Increase the retry interval for the next attempt */
+	if (current_retry_interval < CONFIG_WIFI_MANAGER_MAX_RETRY_MS)
+	{
+		current_retry_interval *= CONFIG_WIFI_MANAGER_RETRY_MULTIPLIER;
+		if (current_retry_interval > CONFIG_WIFI_MANAGER_MAX_RETRY_MS)
+		{
+			current_retry_interval = CONFIG_WIFI_MANAGER_MAX_RETRY_MS;
+		}
+
+		ESP_LOGI(TAG, "Next retry interval set to %ld ms", current_retry_interval);
+	}
+	xTimerChangePeriod(wifi_manager_retry_timer, pdMS_TO_TICKS(current_retry_interval), 0);
+}
 
 int compare_rssi(const void *a, const void *b)
 {
@@ -276,6 +303,8 @@ void wifi_manager_timer_retry_cb(TimerHandle_t xTimer)
 {
 
 	ESP_LOGI(TAG, "Retry Timer Tick! Sending ORDER_CONNECT_STA with reason CONNECTION_REQUEST_AUTO_RECONNECT");
+
+	decelerate_retry_timer();
 
 	/* stop the timer */
 	xTimerStop(xTimer, (TickType_t)0);
@@ -446,7 +475,7 @@ void wifi_manager_start()
 	wifi_manager_event_group = xEventGroupCreate();
 
 	/* create timer for to keep track of retries */
-	wifi_manager_retry_timer = xTimerCreate(NULL, pdMS_TO_TICKS(WIFI_MANAGER_RETRY_TIMER), pdFALSE, (void *)0, wifi_manager_timer_retry_cb);
+	wifi_manager_retry_timer = xTimerCreate(NULL, pdMS_TO_TICKS(CONFIG_WIFI_MANAGER_INITIAL_RETRY_MS), pdFALSE, (void *)0, wifi_manager_timer_retry_cb);
 #if WIFI_MANAGER_SHUTDOWN_AP_TIMER > 0
 	/* create timer for to keep track of AP shutdown */
 	wifi_manager_shutdown_ap_timer = xTimerCreate(NULL, pdMS_TO_TICKS(WIFI_MANAGER_SHUTDOWN_AP_TIMER), pdFALSE, (void *)0, wifi_manager_timer_shutdown_ap_cb);
@@ -1065,6 +1094,7 @@ static void wifi_manager_event_handler(void *arg, esp_event_base_t event_base, i
 		 * to do something, for example, to get the info of the connected STA, etc. */
 		case WIFI_EVENT_AP_STACONNECTED:
 			ESP_LOGI(TAG, "WIFI_EVENT_AP_STACONNECTED");
+			wifi_manager_send_message(WM_EVENT_AP_STACONNECTED, NULL);
 			break;
 
 		/* This event can happen in the following scenarios:
@@ -1504,17 +1534,18 @@ void wifi_manager(void *pvParameters)
 				ESP_LOGI(TAG, "MESSAGE: ORDER_LOAD_AND_RESTORE_STA");
 				if (wifi_manager_fetch_wifi_sta_config())
 				{
-					ESP_LOGI(TAG, "Saved wifi found on startup. Will attempt to connect.");
+					ESP_LOGI(TAG, "Saved wifi found. Will attempt to connect.");
 					wifi_manager_send_message(WM_ORDER_CONNECT_STA, (void *)CONNECTION_REQUEST_RESTORE_CONNECTION);
 				}
-#ifdef CONFIG_WIFI_MANAGER_AUTOSTART_AP
 				else
 				{
+					xTimerStart(wifi_manager_retry_timer, (TickType_t)0);
+#ifdef CONFIG_WIFI_MANAGER_AUTOSTART_AP
 					/* no wifi saved: start soft AP! This is what should happen during a first run */
-					ESP_LOGI(TAG, "No saved wifi found on startup. Starting access point.");
+					ESP_LOGI(TAG, "No saved wifi found. Starting access point.");
 					wifi_manager_send_message(WM_ORDER_START_AP, NULL);
-				}
 #endif // CONFIG_WIFI_MANAGER_AUTOSTART_AP
+				}
 
 				/* callback */
 				if (cb_ptr_arr[msg.code])
@@ -1843,6 +1874,7 @@ void wifi_manager(void *pvParameters)
 				ESP_LOGD(TAG, "WM_EVENT_STA_GOT_IP");
 				ip_event_got_ip_t *ip_event_got_ip = (ip_event_got_ip_t *)msg.param;
 				sta_was_connected = true;
+				reset_retry_timer();
 				uxBits = xEventGroupGetBits(wifi_manager_event_group);
 
 				/* reset connection requests bits -- doesn't matter if it was set or not */

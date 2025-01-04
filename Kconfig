@@ -125,6 +125,24 @@ config WIFI_DEFAULT_STA_CONNECT_MIN_RSSI
     help
         Minimum RSSI allowed to connect to an AP.
     
+config WIFI_MANAGER_INITIAL_RETRY_MS
+    int "Initial retry interval for decelerating retry"
+    default 2500
+    help
+        Initial retry interval for decelerating retry.
+
+config WIFI_MANAGER_MAX_RETRY_MS
+    int "Maximum retry interval for decelerating retry"
+    default 15000
+    help
+        Maximum retry interval for decelerating retry.
+
+config WIFI_MANAGER_RETRY_MULTIPLIER
+    int "Retry interval multiplier"
+    default 2
+    help
+        Retry interval multiplier.
+
 config WIFI_DEFAULT_STA_SCAN_METHOD
     int "Default STA Scan Method"
     default 1
