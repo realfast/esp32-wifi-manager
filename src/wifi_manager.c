@@ -949,6 +949,7 @@ static void wifi_manager_event_handler(void *arg, esp_event_base_t event_base, i
 		 * something, e.g., close the socket which is related to this station, etc. */
 		case WIFI_EVENT_AP_STADISCONNECTED:
 			ESP_LOGI(TAG, "WIFI_EVENT_AP_STADISCONNECTED");
+			wifi_manager_send_message(WM_EVENT_AP_STADISCONNECTED, NULL);
 			break;
 
 		/* This event is disabled by default. The application can enable it via API esp_wifi_set_event_mask().
@@ -1843,6 +1844,18 @@ void wifi_manager(void *pvParameters)
 				http_app_stop();
 				dns_server_stop();
 				finished = true;
+				break;
+
+			case WM_EVENT_AP_STACONNECTED:
+				/* callback */
+				if (cb_ptr_arr[msg.code])
+					(*cb_ptr_arr[msg.code])(NULL);
+				break;
+
+			case WM_EVENT_AP_STADISCONNECTED:
+				/* callback */
+				if (cb_ptr_arr[msg.code])
+					(*cb_ptr_arr[msg.code])(NULL);
 				break;
 
 			default:
