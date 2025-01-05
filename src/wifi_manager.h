@@ -60,7 +60,7 @@ extern "C" {
  * To save memory and avoid nasty out of memory errors,
  * we can limit the number of APs detected in a wifi scan.
  */
-#define MAX_AP_NUM 							15
+#define MAX_AP_NUM 							CONFIG_MAX_AP_NUM
 
 
 /**

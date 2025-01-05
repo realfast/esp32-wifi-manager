@@ -62,6 +62,12 @@ config DEFAULT_AP_CHANNEL
     help
 	Be careful you might not see the access point if you use a channel not allowed in your country.
 
+config MAX_AP_NUM
+    int "Maximum number of APs to scan"
+    default 15
+    help
+	Defines the maximum number of APs that can be scanned.
+
 config DEFAULT_AP_IP
     string "Access Point IP Address"
     default "10.10.0.1"

@@ -105,7 +105,7 @@ SemaphoreHandle_t wifi_manager_event_loop_mutex = NULL;
 SemaphoreHandle_t wifi_scan_mutex = NULL;
 
 char *wifi_manager_sta_ip = NULL;
-uint16_t ap_num = MAX_AP_NUM;
+uint16_t ap_num = CONFIG_MAX_AP_NUM;
 wifi_ap_record_t *accessp_records;
 char *accessp_json = NULL;
 char *ip_info_json = NULL;
