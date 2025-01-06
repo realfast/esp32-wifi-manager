@@ -168,6 +168,13 @@ config WIFI_MANAGER_RETRY_MULTIPLIER
     help
         Retry interval multiplier.
 
+config WIFI_DEFAULT_AP_BANDWIDTH
+    int "Default AP Bandwidth"
+    default 1
+    range 1 2
+    help
+        Default AP Bandwidth. 1=20MHz, 2=40MHz
+
 config WIFI_DEFAULT_STA_SCAN_METHOD
     int "Default STA Scan Method"
     default 1
