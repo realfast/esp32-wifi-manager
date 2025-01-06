@@ -538,7 +538,7 @@ bool wifi_manager_saved_wifi_scan(wifi_ap_record_t *ap)
 	nvs_handle handle;
 	esp_err_t esp_err;
 	bool exists = false;
-	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
+	ap_config_t saved_networks[CONFIG_WIFI_MAX_AP_CONFIGS] = {0};
 	size_t sz;
 
 	if (nvs_sync_lock(portMAX_DELAY))
@@ -556,7 +556,7 @@ bool wifi_manager_saved_wifi_scan(wifi_ap_record_t *ap)
 				return false;
 			}
 
-			for (int i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+			for (int i = 0; i < CONFIG_WIFI_MAX_AP_CONFIGS; i++)
 			{
 				if (saved_networks[i].ssid[0] != 0)
 				{
@@ -584,7 +584,7 @@ esp_err_t wifi_manager_save_sta_config()
 {
 	esp_err_t esp_err;
 	nvs_handle handle;
-	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
+	ap_config_t saved_networks[CONFIG_WIFI_MAX_AP_CONFIGS] = {0};
 	size_t required_size = 0;
 	int i;
 
@@ -630,7 +630,7 @@ esp_err_t wifi_manager_save_sta_config()
 	}
 
 	// Add current network to saved networks
-	for (i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+	for (i = 0; i < CONFIG_WIFI_MAX_AP_CONFIGS; i++)
 	{
 		if (strcmp((char *)wifi_manager_config_sta->sta.ssid, (char *)saved_networks[i].ssid) == 0)
 		{
@@ -655,16 +655,16 @@ esp_err_t wifi_manager_save_sta_config()
 			break;
 		}
 	}
-	if (i == WIFI_MAX_AP_CONFIGS)
+	if (i == CONFIG_WIFI_MAX_AP_CONFIGS)
 	{
 		// No empty slot found, overwrite first saved network delete the oldest network and shift the rest down one
 		ESP_LOGI(TAG, "No empty slot found, overwriting first saved network");
-		for (int i = 0; i < WIFI_MAX_AP_CONFIGS - 2; i++)
+		for (int i = 0; i < CONFIG_WIFI_MAX_AP_CONFIGS - 2; i++)
 		{
 			memcpy(&saved_networks[i], &saved_networks[i + 1], sizeof(saved_networks[i + 1]));
 		}
-		memcpy(&saved_networks[WIFI_MAX_AP_CONFIGS - 1].ssid, &wifi_manager_config_sta->sta.ssid, sizeof(wifi_manager_config_sta->sta.ssid));
-		memcpy(&saved_networks[WIFI_MAX_AP_CONFIGS - 1].password, &wifi_manager_config_sta->sta.password, sizeof(wifi_manager_config_sta->sta.password));
+		memcpy(&saved_networks[CONFIG_WIFI_MAX_AP_CONFIGS - 1].ssid, &wifi_manager_config_sta->sta.ssid, sizeof(wifi_manager_config_sta->sta.ssid));
+		memcpy(&saved_networks[CONFIG_WIFI_MAX_AP_CONFIGS - 1].password, &wifi_manager_config_sta->sta.password, sizeof(wifi_manager_config_sta->sta.password));
 	}
 
 	// Save saved networks to NVS
@@ -709,7 +709,7 @@ bool wifi_manager_wifi_sta_config_exists()
 	nvs_handle handle;
 	size_t sz;
 	wifi_config_t wifi_config;
-	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
+	ap_config_t saved_networks[CONFIG_WIFI_MAX_AP_CONFIGS] = {0};
 
 	if (nvs_sync_lock(portMAX_DELAY))
 	{
@@ -720,7 +720,7 @@ bool wifi_manager_wifi_sta_config_exists()
 
 				if (nvs_get_blob(handle, "saved_networks", saved_networks, &sz) == ESP_OK)
 				{
-					for (int i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+					for (int i = 0; i < CONFIG_WIFI_MAX_AP_CONFIGS; i++)
 					{
 						memcpy(&wifi_config.sta.ssid, &saved_networks[i].ssid, sizeof(wifi_config.sta.ssid));
 						memcpy(&wifi_config.sta.password, &saved_networks[i].password, sizeof(wifi_config.sta.password));
@@ -2137,7 +2137,7 @@ char *wifi_manager_get_saved_aps_json(void)
 {
 	nvs_handle handle;
 	esp_err_t esp_err;
-	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
+	ap_config_t saved_networks[CONFIG_WIFI_MAX_AP_CONFIGS] = {0};
 	size_t required_size = sizeof(saved_networks);
 	char json_string = NULL;
 	// Lock NVS for thread-safe access
@@ -2182,7 +2182,7 @@ char *wifi_manager_get_saved_aps_json(void)
 		return NULL;
 	}
 	// Iterate through saved networks and add to JSON array
-	for (int i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+	for (int i = 0; i < CONFIG_WIFI_MAX_AP_CONFIGS; i++)
 	{
 		if (saved_networks[i].ssid[0] != '\0')
 		{
@@ -2213,7 +2213,7 @@ esp_err_t wifi_manager_delete_saved_ap(const char *ssid)
 {
 	nvs_handle handle;
 	esp_err_t err;
-	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
+	ap_config_t saved_networks[CONFIG_WIFI_MAX_AP_CONFIGS] = {0};
 	size_t required_size = sizeof(saved_networks);
 	bool found = false;
 
@@ -2251,7 +2251,7 @@ esp_err_t wifi_manager_delete_saved_ap(const char *ssid)
 	}
 
 	// Search for the AP with the given SSID
-	for (int i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+	for (int i = 0; i < CONFIG_WIFI_MAX_AP_CONFIGS; i++)
 	{
 		if (strcmp((char *)saved_networks[i].ssid, ssid) == 0)
 		{
@@ -2335,7 +2335,7 @@ esp_err_t wifi_manager_update_ap_password(const char *ssid, const char *new_pass
 
 	nvs_handle handle;
 	esp_err_t err;
-	ap_config_t saved_networks[WIFI_MAX_AP_CONFIGS] = {0};
+	ap_config_t saved_networks[CONFIG_WIFI_MAX_AP_CONFIGS] = {0};
 	size_t required_size = sizeof(saved_networks);
 	bool found = false;
 
@@ -2373,7 +2373,7 @@ esp_err_t wifi_manager_update_ap_password(const char *ssid, const char *new_pass
 	}
 
 	// Search for the AP with the given SSID
-	for (int i = 0; i < WIFI_MAX_AP_CONFIGS; i++)
+	for (int i = 0; i < CONFIG_WIFI_MAX_AP_CONFIGS; i++)
 	{
 		if (strcmp((char *)saved_networks[i].ssid, ssid) == 0)
 		{
