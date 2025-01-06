@@ -19,6 +19,13 @@ config WIFI_DEFAULT_STA_ONLY
     help
     If enabled, the WiFi manager will only connect to an AP. 0=AP+STA, 1=STA only
 
+config WIFI_DEFAULT_STA_POWER_SAVE
+    int "Default STA Power Save"
+    default 0
+    range 0 2
+    help
+        Default STA Power Save. 0=WIFI_PS_NONE, 1=WIFI_PS_MIN_MODEM, 2=WIFI_PS_MAX_MODEM.
+
 config WIFI_MANAGER_AUTOSTART_AP
     bool "Automatically start the AP if the WiFi manager fails to connect to another AP"
     default y
