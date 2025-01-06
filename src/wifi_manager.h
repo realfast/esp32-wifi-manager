@@ -106,7 +106,7 @@ extern "C" {
 #define AP_AUTHMODE 						WIFI_AUTH_WPA2_PSK
 
 /** @brief Defines visibility of the access point. 0: visible AP. 1: hidden */
-#define DEFAULT_AP_SSID_HIDDEN 				0
+#define DEFAULT_AP_SSID_HIDDEN CONFIG_DEFAULT_AP_SSID_HIDDEN
 
 /** @brief Defines access point's name. Default value: esp32. Run 'make menuconfig' to setup your own value or replace here by a string */
 #define DEFAULT_AP_SSID 					CONFIG_DEFAULT_AP_SSID
@@ -163,7 +163,7 @@ extern "C" {
  *  Value: 1 will turn off own AP when connected to another AP (STA only mode when connected)
  *  Turning off own AP when connected to another AP minimize channel interference and increase throughput
  */
-#define DEFAULT_STA_ONLY 					1
+#define DEFAULT_STA_ONLY CONFIG_WIFI_DEFAULT_STA_ONLY
 
 /** @brief Defines if wifi power save shall be enabled.
  *  Value: WIFI_PS_NONE for full power (wifi modem always on)

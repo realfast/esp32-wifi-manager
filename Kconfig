@@ -12,6 +12,13 @@ config WIFI_MANAGER_RETRY_TIMER
 	help
 	Defines the time to wait before an attempt to re-connect to a saved wifi is made after connection is lost or another unsuccesful attempt is made.
 
+config WIFI_DEFAULT_STA_ONLY
+    int "Enable STA only mode"
+    default 0
+    range 0 1
+    help
+    If enabled, the WiFi manager will only connect to an AP. 0=AP+STA, 1=STA only
+
 config WIFI_MANAGER_AUTOSTART_AP
     bool "Automatically start the AP if the WiFi manager fails to connect to another AP"
 	default y
@@ -39,6 +46,13 @@ config DEFAULT_AP_SSID
     default "esp32"
     help
 	SSID (network name) the the esp32 will broadcast.
+
+config DEFAULT_AP_SSID_HIDDEN
+    int "Hide Access Point SSID"
+    default 0
+    range 0 1
+    help
+        If enabled, the Access Point SSID will be hidden. 0=visible, 1=hidden
 
 config WIFI_MANAGER_APPEND_MAC
     bool "Append MAC address to access point SSID"
