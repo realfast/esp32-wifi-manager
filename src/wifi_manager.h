@@ -259,8 +259,8 @@ extern "C"
 
 	typedef struct ap_config_t
 	{
-		char ssid[32];
-		char password[64];
+		char ssid[MAX_SSID_SIZE+1];
+		char password[MAX_PASSWORD_SIZE+1];
 	} ap_config_t;
 
 	/**

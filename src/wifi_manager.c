@@ -227,7 +227,7 @@ void decelerate_retry_timer(void) {
 
 /**
  * @brief Helper function to safely start the retry timer with the current period
- * 
+ *
  * This function updates the timer period and starts it. It should only be called
  * from the WiFi manager task context, not from timer callbacks.
  */
@@ -1407,6 +1407,8 @@ void wifi_manager_set_callback(message_code_t message_code,
 
   if (cb_ptr_arr && message_code < WM_MESSAGE_CODE_COUNT) {
     cb_ptr_arr[message_code] = func_ptr;
+  } else {
+    ESP_LOGE(TAG, "Failed to create callback %d", message_code);
   }
 }
 

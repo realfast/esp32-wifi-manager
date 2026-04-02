@@ -82,14 +82,11 @@ void dns_server_stop()
             socket_fd = -1;
         }
         /* Wait for recvfrom() to return, signified by the mutex being
-         * released */
+         * released; task will then automatically stop after that */
         if (socket_in_use_mutex != NULL)
         {
-            xSemaphoreTake(socket_in_use_mutex, pdMS_TO_TICKS(500));
+            assert(xSemaphoreTake(socket_in_use_mutex, pdMS_TO_TICKS(500)));
         }
-        /* Now it is safe to delete the task */
-        vTaskDelete(task_dns_server);
-        task_dns_server = NULL;
         if (socket_in_use_mutex != NULL)
         {
             vSemaphoreDelete(socket_in_use_mutex);
@@ -158,7 +155,7 @@ void dns_server(void *pvParameters)
         xSemaphoreTake(socket_in_use_mutex, portMAX_DELAY);
         length = recvfrom(socket_fd, data, sizeof(data), 0, (struct sockaddr *)&client, &client_len); /* read udp request */
         xSemaphoreGive(socket_in_use_mutex);
-        
+
         if (length <= 0)
         {
             /* Socket was closed or error occurred, exit the loop */
